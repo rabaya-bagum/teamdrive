@@ -42,6 +42,7 @@ nav .sp{flex:1}
 h1{font:750 clamp(40px,5.6vw,68px)/1.02 var(--display);letter-spacing:-.025em;margin:0 0 22px;max-width:12ch}
 .lede{font-size:19px;color:var(--mute);max-width:34ch;margin:0 0 30px}
 .ctas{display:flex;gap:12px;flex-wrap:wrap}
+.trust{font-size:15px;color:var(--mute);max-width:40ch;margin:18px 0 0}
 
 /* The folder (the one bold element) */
 .folder{position:relative;padding-top:30px;filter:drop-shadow(0 18px 30px rgba(22,33,58,.14))}
@@ -93,6 +94,13 @@ textarea{min-height:96px;resize:vertical}
 .msg.err{display:block;background:#FDE8E8;color:#8A1C1C}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .msg.ok{background:#11331F;color:#B7F0C8}:root:not([data-theme="light"]) .msg.err{background:#3A1515;color:#F8C4C4}}
 
+.faq details{border-bottom:1px solid var(--line);padding:4px 0}
+.faq details:first-child{border-top:1px solid var(--line)}
+.faq summary{cursor:pointer;font:650 18px/1.4 var(--display);padding:14px 28px 14px 0;list-style:none;position:relative}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";position:absolute;right:4px;top:12px;font:400 24px/1 var(--body);color:var(--mute)}
+.faq details[open] summary::after{content:"−"}
+.faq details p{margin:0 0 16px;color:var(--mute);max-width:60ch}
 footer{padding:32px 0 48px;border-top:1px solid var(--line);color:var(--mute);font-size:14px;display:flex;gap:20px;flex-wrap:wrap}
 footer .sp{flex:1}
 
@@ -128,8 +136,8 @@ footer .sp{flex:1}
       <p class="lede">TeamDrive keeps client work organized, private and easy to share, without handing your files to an ad company.</p>
       <div class="ctas">
         <a class="btn primary" href="#request">Request access</a>
-        <a class="btn quiet" href="#features">See what's included</a>
       </div>
+      <p class="trust">Made by Equawire, a small software company in Ontario, Canada. Your files are never used for ads or AI training.</p>
     </div>
 
     <div class="folder" role="img" aria-label="Example of a TeamDrive folder: a restricted client folder with a contract in three versions and a password-protected share link.">
@@ -179,9 +187,10 @@ footer .sp{flex:1}
     <ul class="facts">
       <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>No ads, no tracking, no AI training</b><span>We don't sell data, use analytics cookies, or train AI on your files.</span></div></li>
       <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>Your team is walled off</b><span>Each company gets its own separate space. Other teams can't see anything in yours.</span></div></li>
-      <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>Two-step login for admins</b><span>Admins sign in with a code from an authenticator app. Anyone on the team can turn it on too.</span></div></li>
-      <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>Encrypted in transit and at rest</b><span>Files travel over HTTPS and are stored encrypted with Cloudflare.</span></div></li>
+      <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>Two-step login, required for admins</b><span>Admins always sign in with a code from an authenticator app. Everyone else can turn it on in one minute, with backup codes in case a phone is lost.</span></div></li>
+      <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>Encrypted in transit and at rest</b><span>Files travel over HTTPS and are stored encrypted by Cloudflare, an established cloud storage provider.</span></div></li>
       <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>You own your files</b><span>If you leave, you get 30 days to download everything before it's deleted.</span></div></li>
+      <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>Clear about where data lives</b><span>Equawire is based in Ontario, but our hosting and storage providers may keep data outside Canada, such as in the United States. If your files must stay in Canada, tell us before you start.</span></div></li>
     </ul>
   </div>
 </section>
@@ -192,6 +201,20 @@ footer .sp{flex:1}
     <div>
       <p class="price">Each team gets its own space with a storage limit sized for you.</p>
       <p class="intro" style="margin-bottom:0">Tell us how many people you have and roughly how much you store, and we'll send you a quote. There's no charge to talk it through.</p>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap split">
+    <div><h2>Questions</h2></div>
+    <div class="faq">
+      <details><summary>How much can we store?</summary><p>Each team has a storage limit that we agree with you, and you can see how much you've used at the top of TeamDrive. Single files can be up to 2 GB. If you need more room, ask and we'll raise the limit.</p></details>
+      <details><summary>Can we move over from Google Drive or Dropbox?</summary><p>Yes. Download your folders from Google Drive (or use Google Takeout) or Dropbox, then drag the folders into TeamDrive. The folder structure is kept as it is.</p></details>
+      <details><summary>Where are our files stored?</summary><p>Files are stored by Cloudflare and the app runs on Hostinger. Both may keep data outside Canada, for example in the United States. Our <a href="/privacy">Privacy Policy</a> lists exactly what we store and for how long.</p></details>
+      <details><summary>What happens to our share links if we leave?</summary><p>They stop working when your team is closed. You get 30 days to download everything first, and then your files are deleted.</p></details>
+      <details><summary>Do people need to install anything?</summary><p>No. TeamDrive runs in any modern browser on computers, tablets and phones. Two-step login uses a free authenticator app such as Google Authenticator.</p></details>
+      <details><summary>Can people outside our team get files?</summary><p>Only through a share link you create. You can add a password and an expiry date, see how many times it was downloaded, and turn it off at any time.</p></details>
     </div>
   </div>
 </section>
@@ -210,7 +233,7 @@ footer .sp{flex:1}
         <option value="">Choose…</option><option>1–5 people</option><option>6–15 people</option><option>16–50 people</option><option>More than 50</option>
       </select></label>
       <label class="full"><span>Anything we should know? <span class="opt">(optional)</span></span><textarea name="message" maxlength="2000" placeholder="How much you store, what you share, when you'd like to start…"></textarea></label>
-      <label class="hp" aria-hidden="true">Leave this empty<input name="website" tabindex="-1" autocomplete="off"></label>
+      <div class="hp" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off" aria-label="Website"></div>
       <div class="msg" id="msg" role="status" aria-live="polite"></div>
       <div class="full" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
         <button class="btn primary" id="send">Send request</button>
