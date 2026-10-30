@@ -20,6 +20,9 @@ npm run create-user -- you@equawire.com "Nazmul" "a-strong-password" --admin
 ```
 5. Start the app and open your domain. Add teammates from the **Users** tab.
 
+## Terms of Service and Privacy Policy
+Served at `/terms` and `/privacy` and linked from the sign-in page, share-link pages and the account menu. The business name, contact email and date come from `.env` (`LEGAL_NAME`, `LEGAL_OPERATOR`, `LEGAL_EMAIL`, `LEGAL_UPDATED`), so you can update them after incorporating without touching code. The text itself is in `src/legal.js`. If you change how TeamDrive handles data (new providers, analytics, retention), update the policy too.
+
 ## Notes
 - Files never pass through Hostinger — the browser uploads directly to R2 with a 1-hour signed URL, so large files work on shared hosting.
 - Delete = moves to Trash. Only admins can "Delete forever". The stored object stays in R2 for 30 days (`PURGE_DAYS` in `.env`) and is listed in the `purge_queue` table, so it can still be recovered; an hourly job then erases it.

@@ -10,6 +10,7 @@ const QRCode = require('qrcode');
 const { pool, q } = require('./db');
 const r2 = require('./r2');
 const totp = require('./totp');
+const legal = require('./legal');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -767,7 +768,8 @@ body{margin:0;font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;backgrou
 .c{max-width:360px;margin:14vh auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:24px;display:grid;gap:12px}
 input,button{font:inherit;padding:9px 11px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
 button{background:var(--acc);border-color:var(--acc);color:#fff;cursor:pointer}.m{color:var(--mute);font-size:14px}.e{color:var(--danger);font-size:14px}
-</style></head><body><div class="c">${body}</div></body></html>`;
+a{color:var(--acc)}.f{text-align:center;font-size:13px;color:var(--mute);margin-top:-6vh}
+</style></head><body><div class="c">${body}</div><p class="f"><a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></p></body></html>`;
 async function shareRow(token) {
   const [row] = await q(`SELECT s.id, s.password_hash, f.id AS file_id, f.team_id, f.r2_key, f.name FROM share_links s
     JOIN files f ON f.id=s.file_id JOIN teams t ON t.id=f.team_id
@@ -888,6 +890,8 @@ app.patch('/api/owner/teams/:id', auth, owner, wrap(async (req, res) => {
 }));
 
 // ---------- Frontend ----------
+app.get('/terms', (req, res) => res.send(legal.terms()));
+app.get('/privacy', (req, res) => res.send(legal.privacy()));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'index.html')));
 
