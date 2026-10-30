@@ -1,6 +1,6 @@
 # TeamDrive — simple team file service
 
-Login, folders, drag-and-drop uploads (straight to Cloudflare R2), downloads, rename, search, Trash with restore, expiring share links, and an admin page for team members.
+Login, folders, drag-and-drop uploads of files *and whole folders* (straight to Cloudflare R2), in-browser previews, download-folder-as-zip, file versions, restricted folders, sortable lists with storage usage, Trash with restore, expiring/password-protected share links you can manage and revoke, and an admin page for team members.
 
 ## 1. Cloudflare R2
 1. Create bucket `teamdrive`.
@@ -27,5 +27,10 @@ npm run create-user -- you@equawire.com "Nazmul" "a-strong-password" --admin
 - Everyone can change their password (Password button); admins can reset anyone's from the Users tab.
 - Files and folders can be moved with the Move button.
 - Share links are public download links; default expiry 7 days, 0 = never.
-- Everyone on the team can see all files (MVP). Per-folder permissions are the next step.
+- **Restricted folders:** folders are open to the whole team by default. An admin or the folder's creator can use ⋯ → *Restrict access* to limit a folder (and everything inside it) to chosen members. Admins always have access.
+- **Versions:** uploading a file with the same name into the same folder saves it as a new version. ⋯ → *Versions* lets you download or restore older copies.
+- **Previews:** images, PDFs, video, audio and text open in the browser. HTML and code files are shown as plain text, never run.
+- **Download zip:** folders download as a zip streamed through the server (limit `MAX_ZIP_MB`, default 5120). Very large folders on shared hosting may be slow; download subfolders instead.
+- **Share links:** optional password and expiry. The *Shared links* tab lists links with download counts and lets you revoke them (admins see all links).
+- **Updates:** new tables and columns are added automatically when the app starts — just redeploy.
 - Backups: schedule a nightly `mysqldump` (hPanel cron) — R2 already holds the files.

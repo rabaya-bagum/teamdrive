@@ -5,99 +5,103 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TeamDrive</title>
 <style>
-:root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--mute:#6b7280;--line:#e5e7eb;--acc:#2f6bff;--danger:#d93838}
-@media (prefers-color-scheme:dark){:root{--bg:#111318;--card:#1a1d24;--ink:#e8eaf0;--mute:#9aa1ad;--line:#2a2e38;--acc:#5b8cff}}
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--mute:#6b7280;--line:#e5e7eb;--acc:#2f6bff;--danger:#d93838;--hover:#f1f3f7}
+@media (prefers-color-scheme:dark){:root{--bg:#111318;--card:#1a1d24;--ink:#e8eaf0;--mute:#9aa1ad;--line:#2a2e38;--acc:#5b8cff;--hover:#22262f}}
 *{box-sizing:border-box}body{margin:0;font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
-button,input{font:inherit}button{cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 12px;border-radius:8px}
-button.p{background:var(--acc);border-color:var(--acc);color:#fff}button.d{color:var(--danger)}
-input{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 10px;border-radius:8px;width:100%}
-header{display:flex;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--card);flex-wrap:wrap}
-header b{font-size:17px}header .sp{flex:1}#search{max-width:320px}
-main{max-width:1000px;margin:0 auto;padding:16px}
+button,input,select{font:inherit}button{cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 12px;border-radius:8px}
+button:hover{background:var(--hover)}button.p{background:var(--acc);border-color:var(--acc);color:#fff}button.d{color:var(--danger)}
+button.on{border-color:var(--acc);color:var(--acc)}
+input,select{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 10px;border-radius:8px;width:100%}
+input[type=checkbox]{width:auto}
+header{display:flex;gap:8px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--card);flex-wrap:wrap}
+header b{font-size:17px;margin-right:6px}header .sp{flex:1}#search{max-width:260px}
+#usage{font-size:13px;color:var(--mute)}
+main{max-width:1050px;margin:0 auto;padding:16px}
 .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
-.crumbs a{color:var(--acc);cursor:pointer;text-decoration:none}.crumbs span{color:var(--mute);margin:0 4px}
+.crumbs a{color:var(--acc);cursor:pointer}.crumbs span{color:var(--mute);margin:0 4px}
 table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
-td,th{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left}th{font-size:12px;color:var(--mute);font-weight:600}
-tr:last-child td{border-bottom:0}td.n{cursor:pointer}td.n:hover{color:var(--acc)}.m{color:var(--mute);font-size:13px}
-.acts{white-space:nowrap;text-align:right}.acts button{padding:4px 8px;font-size:13px}
-#drop{border:2px dashed var(--line);border-radius:10px;padding:14px;text-align:center;color:var(--mute);margin-bottom:12px}
+td,th{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font-size:12px;color:var(--mute);font-weight:600;user-select:none}th.s{cursor:pointer}th.s:hover{color:var(--ink)}
+tr:last-child td{border-bottom:0}td.n{cursor:pointer;word-break:break-word}td.n:hover{color:var(--acc)}.m{color:var(--mute);font-size:13px}
+.tag{font-size:11px;border:1px solid var(--line);border-radius:999px;padding:1px 7px;color:var(--mute);margin-left:6px;white-space:nowrap}
+.acts{white-space:nowrap;text-align:right;width:1%}.acts button{padding:3px 10px}
+#drop{border:2px dashed var(--line);border-radius:10px;padding:12px;text-align:center;color:var(--mute);margin-bottom:12px}
 #drop.on{border-color:var(--acc);color:var(--acc)}
 .login{max-width:340px;margin:12vh auto;background:var(--card);padding:24px;border-radius:12px;border:1px solid var(--line);display:grid;gap:10px}
-.err{color:var(--danger);font-size:14px}.prog{font-size:13px;color:var(--mute)}
-dialog{border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);padding:20px;width:min(420px,92vw)}
-dialog::backdrop{background:rgba(0,0,0,.4)}dialog form{display:grid;gap:10px}
-select{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 10px;border-radius:8px;width:100%}
-.row{display:flex;gap:8px;justify-content:flex-end}
-@media (max-width:640px){.hide-s{display:none}}
+.err{color:var(--danger);font-size:14px}.prog{font-size:13px;color:var(--mute);margin-bottom:8px}
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);padding:20px;width:min(440px,94vw);max-height:90vh}
+dialog.wide{width:min(960px,96vw)}dialog::backdrop{background:rgba(0,0,0,.45)}dialog form{display:grid;gap:10px}
+.row{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.menu{position:absolute;z-index:50;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.15);padding:4px;min-width:170px}
+.menu button{display:block;width:100%;text-align:left;border:0;border-radius:6px;padding:7px 10px}
+.pv{display:flex;justify-content:center;align-items:center;background:var(--bg);border-radius:8px;min-height:200px;max-height:70vh;overflow:auto}
+.pv img,.pv video{max-width:100%;max-height:70vh}.pv iframe{width:100%;height:70vh;border:0;background:#fff}
+.members{display:grid;gap:6px;max-height:40vh;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:8px}
+.members label{display:flex;gap:8px;align-items:center}
+.copy{display:flex;gap:6px}.copy input{flex:1}
+@media (max-width:700px){.hide-s{display:none}#search{max-width:none;order:9;flex-basis:100%}}
 </style>
 </head>
 <body>
 <div id="app"></div>
 <input type="file" id="picker" multiple hidden>
+<input type="file" id="dirPicker" webkitdirectory multiple hidden>
 <dialog id="dlg"></dialog>
 <script>
-const $ = (s) => document.querySelector(s);
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fmt = (b) => b < 1024 ? b + ' B' : b < 1048576 ? (b/1024).toFixed(1) + ' KB' : b < 1073741824 ? (b/1048576).toFixed(1) + ' MB' : (b/1073741824).toFixed(2) + ' GB';
-const day = (d) => new Date(d).toLocaleDateString();
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = (b) => { b = Number(b); return b < 1024 ? b + ' B' : b < 1048576 ? (b/1024).toFixed(1) + ' KB' : b < 1073741824 ? (b/1048576).toFixed(1) + ' MB' : (b/1073741824).toFixed(2) + ' GB'; };
+const day = (d) => d ? new Date(d).toLocaleDateString() : '';
+const when = (d) => d ? new Date(d).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '';
+const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+
 async function api(url, opts = {}) {
   const r = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts, body: opts.body && JSON.stringify(opts.body) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.error || 'Request failed');
   return j;
 }
-let me = null, folder = 'root', view = 'files';
+let me = null, folder = 'root', view = 'files', sort = store.get('td-sort', { key: 'name', dir: 1 });
 
-// Generic modal. onOk(values) runs while it stays open; throwing shows the error in place.
-function modal(title, fields, submit, onOk) {
+// ---------- Modal ----------
+// modal({title, body, submit, onOk, wide}) – onOk(values) runs while open; throwing shows the error.
+function modal({ title, body, submit, onOk, wide, cancel = 'Cancel' }) {
   const d = $('#dlg');
-  d.innerHTML = `<form><b>${esc(title)}</b>${fields.map((f) => f.options
-      ? `<label class="m">${esc(f.label)}<select name="${f.name}">${f.options.map((o) => `<option value="${o.value}">${esc(o.label)}</option>`).join('')}</select></label>`
-      : `<label class="m">${esc(f.label)}<input name="${f.name}" type="${f.type || 'text'}" ${f.min ? `minlength="${f.min}"` : ''} required></label>`).join('')}
-    <div class="err" id="dlgErr"></div><div class="row"><button type="button" id="dlgX">Cancel</button><button class="p">${esc(submit)}</button></div></form>`;
+  d.className = wide ? 'wide' : '';
+  d.innerHTML = `<form><b>${esc(title)}</b>${body}<div class="err" id="dlgErr"></div>
+    <div class="row"><button type="button" id="dlgX">${esc(cancel)}</button>${submit ? `<button class="p">${esc(submit)}</button>` : ''}</div></form>`;
   $('#dlgX').onclick = () => d.close();
   d.querySelector('form').onsubmit = async (e) => {
     e.preventDefault();
+    if (!onOk) return d.close();
     $('#dlgErr').textContent = '';
-    try { await onOk(Object.fromEntries(new FormData(e.target))); d.close(); }
+    try { if ((await onOk(Object.fromEntries(new FormData(e.target)), e.target)) !== false) d.close(); }
     catch (err) { $('#dlgErr').textContent = err.message; }
   };
-  d.showModal();
+  if (!d.open) d.showModal();
+  return d;
 }
+const field = (name, label, type = 'text', extra = '') => `<label class="m">${esc(label)}<input name="${name}" type="${type}" ${extra}></label>`;
+const notify = (msg) => modal({ title: msg, body: '', cancel: 'OK' });
 
-async function folderOptions(excludeId) {
-  const all = await api('/api/folders-all');
-  const byId = Object.fromEntries(all.map((f) => [f.id, f]));
-  const pathOf = (f) => { const p = []; for (let c = f; c; c = byId[c.parent_id]) p.unshift(c.name); return p.join(' / '); };
-  // hide the folder being moved and everything inside it
-  const inside = (f) => { for (let c = f; c; c = byId[c.parent_id]) if (c.id === excludeId) return true; return false; };
-  return [{ value: 'root', label: 'My team (top level)' },
-    ...all.filter((f) => !inside(f)).map((f) => ({ value: f.id, label: pathOf(f) })).sort((a, b) => a.label.localeCompare(b.label))];
+// ---------- Row menu ----------
+function menu(anchor, items) {
+  closeMenu();
+  const m = document.createElement('div');
+  m.className = 'menu'; m.id = 'menu';
+  m.innerHTML = items.filter(Boolean).map((it, i) => `<button data-i="${i}" class="${it.danger ? 'd' : ''}">${esc(it.label)}</button>`).join('');
+  document.body.appendChild(m);
+  const r = anchor.getBoundingClientRect();
+  m.style.top = `${window.scrollY + r.bottom + 4}px`;
+  m.style.left = `${Math.max(8, window.scrollX + r.right - m.offsetWidth)}px`;
+  const list = items.filter(Boolean);
+  $$('button', m).forEach((b) => b.onclick = () => { closeMenu(); list[b.dataset.i].run(); });
+  setTimeout(() => document.addEventListener('click', closeMenu, { once: true }));
 }
-async function moveItem(kind, id) {
-  const options = await folderOptions(kind === 'folder' ? Number(id) : null);
-  modal('Move to…', [{ name: 'to', label: 'Destination folder', options }], 'Move', async (v) => {
-    await api(`/api/${kind === 'folder' ? 'folders' : 'files'}/${id}`, { method: 'PATCH', body: kind === 'folder' ? { parent_id: v.to } : { folder_id: v.to } });
-    render();
-  });
-}
-function changePassword() {
-  modal('Change password', [
-    { name: 'current', label: 'Current password', type: 'password' },
-    { name: 'password', label: 'New password (8+ characters)', type: 'password', min: 8 },
-    { name: 'confirm', label: 'Repeat new password', type: 'password', min: 8 }], 'Save', async (v) => {
-    if (v.password !== v.confirm) throw new Error("New passwords don't match");
-    await api('/api/me/password', { method: 'POST', body: v });
-    setTimeout(() => alert('Password changed.'));
-  });
-}
-function resetPassword(id, name) {
-  modal(`Reset password for ${name}`, [{ name: 'password', label: 'New password (8+ characters)', type: 'password', min: 8 }], 'Reset', async (v) => {
-    await api(`/api/users/${id}/password`, { method: 'POST', body: v });
-    setTimeout(() => alert('Password reset. Share it with them privately.'));
-  });
-}
+const closeMenu = () => $('#menu')?.remove();
 
+// ---------- Auth & shell ----------
 function loginView(msg = '') {
   $('#app').innerHTML = `<form class="login" id="lf"><b style="font-size:20px">TeamDrive</b>
     <input name="email" type="email" placeholder="Email" required autocomplete="username">
@@ -113,82 +117,265 @@ function loginView(msg = '') {
 
 function shell() {
   $('#app').innerHTML = `<header><b>TeamDrive</b>
-    <button data-v="files">Files</button><button data-v="trash">Trash</button>${me.is_admin ? '<button data-v="users">Users</button>' : ''}
-    <div class="sp"></div><input id="search" placeholder="Search files…"><span class="m hide-s">${esc(me.name)}</span><button id="pw">Password</button><button id="out">Sign out</button></header><main id="main"></main>`;
-  $('#pw').onclick = changePassword;
-  document.querySelectorAll('[data-v]').forEach((b) => b.onclick = () => { view = b.dataset.v; folder = 'root'; render(); });
-  $('#out').onclick = async () => { await api('/api/logout', { method: 'POST' }); me = null; loginView(); };
+    <button data-v="files">Files</button><button data-v="shares">Shared links</button><button data-v="trash">Trash</button>${me.is_admin ? '<button data-v="users">Users</button>' : ''}
+    <div class="sp"></div><span id="usage" class="hide-s"></span><input id="search" placeholder="Search files…">
+    <button id="acct">${esc(me.name)} ▾</button></header><main id="main"></main>`;
+  $$('[data-v]').forEach((b) => b.onclick = () => { view = b.dataset.v; folder = 'root'; $('#search').value = ''; render(); });
+  $('#acct').onclick = (e) => { e.stopPropagation(); menu(e.currentTarget, [
+    { label: 'Change password', run: changePassword },
+    { label: 'Sign out', run: async () => { await api('/api/logout', { method: 'POST' }); me = null; loginView(); } }]); };
   let t; $('#search').oninput = (e) => { clearTimeout(t); t = setTimeout(() => { view = e.target.value.trim() ? 'search' : 'files'; render(); }, 250); };
   render();
 }
-
-function rows(folders, files, opts = {}) {
-  const fr = folders.map((f) => `<tr><td class="n" data-open="${f.id}">📁 ${esc(f.name)}</td><td class="m hide-s">${esc(f.owner || '')}</td><td class="m hide-s">—</td><td class="m hide-s">${f.created_at ? day(f.created_at) : ''}</td>
-    <td class="acts">${opts.trash ? tAct('folder', f.id) : `<button data-mv-f="${f.id}">Move</button> <button data-ren-f="${f.id}" data-name="${esc(f.name)}">Rename</button> <button class="d" data-del-f="${f.id}">Delete</button>`}</td></tr>`).join('');
-  const fl = files.map((f) => `<tr><td class="n" data-dl="${f.id}">📄 ${esc(f.name)}</td><td class="m hide-s">${esc(f.owner || '')}</td><td class="m hide-s">${fmt(f.size)}</td><td class="m hide-s">${day(f.created_at || f.deleted_at)}</td>
-    <td class="acts">${opts.trash ? tAct('file', f.id) : `<button data-share="${f.id}">Share</button> <button data-mv="${f.id}">Move</button> <button data-ren="${f.id}" data-name="${esc(f.name)}">Rename</button> <button class="d" data-del="${f.id}">Delete</button>`}</td></tr>`).join('');
-  return `<table><tr><th>Name</th><th class="hide-s">Owner</th><th class="hide-s">Size</th><th class="hide-s">Date</th><th></th></tr>${fr + fl || '<tr><td colspan="5" class="m">Nothing here yet.</td></tr>'}</table>`;
+async function usage() {
+  try { const s = await api('/api/stats'); $('#usage').textContent = `${fmt(s.bytes)} used · ${s.files} files`; } catch {}
 }
-const tAct = (type, id) => `<button data-restore="${type}:${id}">Restore</button>${me.is_admin ? ` <button class="d" data-purge="${type}:${id}">Delete forever</button>` : ''}`;
 
-function bind() {
-  const on = (sel, fn) => document.querySelectorAll(`[${sel}]`).forEach((el) => el.onclick = () => fn(el.getAttribute(sel), el));
-  on('data-open', (id) => { view = 'files'; folder = id; $('#search').value = ''; render(); });
-  on('data-dl', (id) => { location.href = `/api/files/${id}/download`; });
-  on('data-del', async (id) => { await api(`/api/files/${id}`, { method: 'DELETE' }); render(); });
-  on('data-del-f', async (id) => { if (confirm('Move folder and its contents to Trash?')) { await api(`/api/folders/${id}`, { method: 'DELETE' }); render(); } });
-  on('data-ren', async (id, el) => { const n = prompt('New name', el.dataset.name); if (n) { await api(`/api/files/${id}`, { method: 'PATCH', body: { name: n } }); render(); } });
-  on('data-ren-f', async (id, el) => { const n = prompt('New name', el.dataset.name); if (n) { await api(`/api/folders/${id}`, { method: 'PATCH', body: { name: n } }); render(); } });
-  on('data-share', async (id) => {
-    const d = prompt('Link expires after how many days? (0 = never)', '7'); if (d === null) return;
-    const { url } = await api(`/api/files/${id}/share`, { method: 'POST', body: { days: Number(d) } });
-    try { await navigator.clipboard.writeText(url); alert('Link copied:\n' + url); } catch { prompt('Share link:', url); }
+// ---------- Listing ----------
+const sorters = {
+  name: (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
+  size: (a, b) => (a.size ?? -1) - (b.size ?? -1),
+  date: (a, b) => new Date(a.updated_at || a.created_at || a.deleted_at) - new Date(b.updated_at || b.created_at || b.deleted_at),
+};
+const sorted = (arr) => [...arr].sort((a, b) => sorters[sort.key](a, b) * sort.dir || sorters.name(a, b));
+const th = (key, label, cls = '') => `<th class="s ${cls}" data-sort="${key}">${label}${sort.key === key ? (sort.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`;
+const PREVIEWABLE = /^(image\/(png|jpe?g|gif|webp|avif|bmp|svg\+xml)|video\/(mp4|webm|ogg|quicktime)|audio\/|application\/pdf|text\/|application\/(json|xml|javascript))/;
+
+function table(folders, files, { trash = false } = {}) {
+  const fr = sorted(folders).map((f) => `<tr><td class="n" data-open="${f.id}">📁 ${esc(f.name)}${f.restricted ? '<span class="tag">🔒 restricted</span>' : ''}</td>
+    <td class="m hide-s">${esc(f.owner || '')}</td><td class="m hide-s">—</td><td class="m hide-s">${day(f.created_at || f.deleted_at)}</td>
+    <td class="acts"><button data-fmenu="${f.id}" aria-label="Actions">⋯</button></td></tr>`).join('');
+  const fl = sorted(files).map((f) => `<tr><td class="n" data-file="${f.id}">📄 ${esc(f.name)}${f.versions > 0 ? `<span class="tag">${Number(f.versions) + 1} versions</span>` : ''}</td>
+    <td class="m hide-s">${esc(f.owner || '')}</td><td class="m hide-s">${fmt(f.size)}</td><td class="m hide-s">${day(f.updated_at || f.deleted_at)}</td>
+    <td class="acts"><button data-menu="${f.id}" aria-label="Actions">⋯</button></td></tr>`).join('');
+  return `<table><tr>${th('name', 'Name')}<th class="hide-s">Owner</th>${th('size', 'Size', 'hide-s')}${th('date', trash ? 'Deleted' : 'Modified', 'hide-s')}<th></th></tr>
+    ${fr + fl || `<tr><td colspan="5" class="m">${trash ? 'Trash is empty.' : 'Nothing here yet.'}</td></tr>`}</table>`;
+}
+
+function bindTable(folders, files, { trash = false } = {}) {
+  const F = Object.fromEntries(folders.map((f) => [f.id, f])), G = Object.fromEntries(files.map((f) => [f.id, f]));
+  $$('[data-sort]').forEach((h) => h.onclick = () => {
+    sort = sort.key === h.dataset.sort ? { key: sort.key, dir: -sort.dir } : { key: h.dataset.sort, dir: h.dataset.sort === 'name' ? 1 : -1 };
+    store.set('td-sort', sort); render();
   });
-  on('data-mv', (id) => moveItem('file', id));
-  on('data-mv-f', (id) => moveItem('folder', id));
-  on('data-restore', async (v) => { const [t, id] = v.split(':'); await api(`/api/trash/${t}/${id}/restore`, { method: 'POST' }); render(); });
-  on('data-purge', async (v) => { const [t, id] = v.split(':'); if (confirm('Permanently delete? This cannot be undone.')) { await api(`/api/trash/${t}/${id}`, { method: 'DELETE' }); render(); } });
+  $$('[data-open]').forEach((el) => el.onclick = () => { if (trash) return; view = 'files'; folder = el.dataset.open; $('#search').value = ''; render(); });
+  $$('[data-file]').forEach((el) => el.onclick = () => { if (trash) return; openFile(G[el.dataset.file]); });
+  $$('[data-fmenu]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); const f = F[b.dataset.fmenu];
+    menu(b, trash ? trashItems('folder', f) : [
+      { label: 'Download as zip', run: () => { location.href = `/api/folders/${f.id}/zip`; } },
+      { label: 'Move…', run: () => moveItem('folder', f.id) },
+      { label: 'Rename…', run: () => rename('folder', f) },
+      f.can_manage && { label: f.restricted ? '🔒 Access…' : 'Restrict access…', run: () => accessDialog(f) },
+      { label: 'Delete', danger: true, run: () => del('folder', f) }]); });
+  $$('[data-menu]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); const f = G[b.dataset.menu];
+    menu(b, trash ? trashItems('file', f) : [
+      PREVIEWABLE.test(f.mime) && { label: 'Preview', run: () => preview(f) },
+      { label: 'Download', run: () => { location.href = `/api/files/${f.id}/download`; } },
+      { label: 'Share link…', run: () => share(f) },
+      { label: 'Versions…', run: () => versions(f) },
+      { label: 'Move…', run: () => moveItem('file', f.id) },
+      { label: 'Rename…', run: () => rename('file', f) },
+      { label: 'Delete', danger: true, run: () => del('file', f) }]); });
+}
+const trashItems = (type, item) => [
+  { label: 'Restore', run: async () => { const r = await api(`/api/trash/${type}/${item.id}/restore`, { method: 'POST' });
+      if (r.movedToRoot) notify(`"${item.name}" was restored to the top level because its folder is still in Trash.`); render(); } },
+  me.is_admin && { label: 'Delete forever', danger: true, run: () => modal({ title: `Delete "${item.name}" forever?`,
+      body: '<span class="m">It disappears from TeamDrive now. The stored copy is kept 30 days, then erased.</span>', submit: 'Delete forever',
+      onOk: async () => { await api(`/api/trash/${type}/${item.id}`, { method: 'DELETE' }); render(); } }) }];
+
+// ---------- Actions ----------
+function openFile(f) { PREVIEWABLE.test(f.mime) ? preview(f) : (location.href = `/api/files/${f.id}/download`); }
+
+async function preview(f) {
+  let p;
+  try { p = await api(`/api/files/${f.id}/preview`); } catch (err) { return notify(err.message); }
+  const m = f.mime;
+  const media = m.startsWith('image/') ? `<img src="${esc(p.url)}" alt="${esc(f.name)}">`
+    : m.startsWith('video/') ? `<video src="${esc(p.url)}" controls autoplay></video>`
+    : m.startsWith('audio/') ? `<audio src="${esc(p.url)}" controls autoplay></audio>`
+    : `<iframe src="${esc(p.url)}" title="${esc(f.name)}"></iframe>`;
+  const d = modal({ title: f.name, wide: true, cancel: 'Close', submit: 'Download',
+    body: `<div class="pv">${media}</div>`, onOk: () => { location.href = `/api/files/${f.id}/download`; } });
+  d.addEventListener('close', () => { const v = $('video,audio', d); v && v.pause(); }, { once: true });
 }
 
+function rename(kind, item) {
+  modal({ title: 'Rename', body: field('name', 'New name', 'text', `required value="${esc(item.name)}"`), submit: 'Save',
+    onOk: async (v) => { await api(`/api/${kind === 'folder' ? 'folders' : 'files'}/${item.id}`, { method: 'PATCH', body: { name: v.name } }); render(); } });
+  const i = $('#dlg input'); const dot = item.name.lastIndexOf('.');
+  i.focus(); i.setSelectionRange(0, kind === 'file' && dot > 0 ? dot : item.name.length);
+}
+function del(kind, item) {
+  modal({ title: `Move "${item.name}" to Trash?`, body: kind === 'folder' ? '<span class="m">Everything inside goes with it. You can restore it from Trash.</span>' : '',
+    submit: 'Move to Trash', onOk: async () => { await api(`/api/${kind === 'folder' ? 'folders' : 'files'}/${item.id}`, { method: 'DELETE' }); render(); } });
+}
+
+async function folderOptions(excludeId) {
+  const all = await api('/api/folders-all');
+  const byId = Object.fromEntries(all.map((f) => [f.id, f]));
+  const pathOf = (f) => { const p = []; for (let c = f; c; c = byId[c.parent_id]) p.unshift(c.name); return p.join(' / '); };
+  const inside = (f) => { for (let c = f; c; c = byId[c.parent_id]) if (c.id === excludeId) return true; return false; };
+  return [{ value: 'root', label: 'My team (top level)' },
+    ...all.filter((f) => !inside(f)).map((f) => ({ value: f.id, label: pathOf(f) })).sort((a, b) => a.label.localeCompare(b.label))];
+}
+async function moveItem(kind, id) {
+  const opts = await folderOptions(kind === 'folder' ? Number(id) : null);
+  modal({ title: 'Move to…', submit: 'Move',
+    body: `<label class="m">Destination folder<select name="to">${opts.map((o) => `<option value="${o.value}">${esc(o.label)}</option>`).join('')}</select></label>`,
+    onOk: async (v) => { await api(`/api/${kind === 'folder' ? 'folders' : 'files'}/${id}`, { method: 'PATCH', body: kind === 'folder' ? { parent_id: v.to } : { folder_id: v.to } }); render(); } });
+}
+
+function share(f) {
+  modal({ title: `Share "${f.name}"`, submit: 'Create link',
+    body: `<label class="m">Link expires<select name="days"><option value="1">After 1 day</option><option value="7" selected>After 7 days</option>
+      <option value="30">After 30 days</option><option value="0">Never</option></select></label>
+      ${field('password', 'Password (optional, 4+ characters)', 'password', 'minlength="4" autocomplete="new-password"')}
+      <span class="m">Anyone with the link can download this file${''}. Manage links under "Shared links".</span>`,
+    onOk: async (v) => {
+      const { url } = await api(`/api/files/${f.id}/share`, { method: 'POST', body: { days: Number(v.days), password: v.password } });
+      showLink(url, !!v.password);
+      return false;
+    } });
+}
+function showLink(url, pw) {
+  modal({ title: 'Link created', cancel: 'Done',
+    body: `<div class="copy"><input readonly value="${esc(url)}" id="lnk"><button type="button" id="cp">Copy</button></div>
+      ${pw ? '<span class="m">Send the password separately from the link.</span>' : ''}` });
+  $('#lnk').select();
+  $('#cp').onclick = async () => { try { await navigator.clipboard.writeText(url); $('#cp').textContent = 'Copied'; } catch { $('#lnk').select(); } };
+}
+
+async function versions(f) {
+  const v = await api(`/api/files/${f.id}/versions`);
+  const rows = [`<tr><td><b>Current</b></td><td class="m">${when(v.current.created_at)}</td><td class="m hide-s">${esc(v.current.owner || '')}</td><td class="m">${fmt(v.current.size)}</td>
+      <td class="acts"><button type="button" data-cur>Download</button></td></tr>`,
+    ...v.older.map((o) => `<tr><td class="m">Older</td><td class="m">${when(o.created_at)}</td><td class="m hide-s">${esc(o.owner)}</td><td class="m">${fmt(o.size)}</td>
+      <td class="acts"><button type="button" data-vdl="${o.id}">Download</button> <button type="button" data-vrs="${o.id}">Restore</button></td></tr>`)];
+  modal({ title: `Versions of "${v.name}"`, wide: true, cancel: 'Close',
+    body: `<span class="m">Uploading a file with the same name into the same folder saves a new version.${v.older.length ? '' : ' There are no older versions yet.'}</span>
+      <table>${rows.join('')}</table>` });
+  $('[data-cur]').onclick = () => { location.href = `/api/files/${f.id}/download`; };
+  $$('[data-vdl]').forEach((b) => b.onclick = () => { location.href = `/api/files/${f.id}/versions/${b.dataset.vdl}/download`; });
+  $$('[data-vrs]').forEach((b) => b.onclick = async () => {
+    try { await api(`/api/files/${f.id}/versions/${b.dataset.vrs}/restore`, { method: 'POST' }); $('#dlg').close(); render(); versions(f); }
+    catch (err) { $('#dlgErr').textContent = err.message; } });
+}
+
+async function accessDialog(f) {
+  const [a, members] = await Promise.all([api(`/api/folders/${f.id}/access`), api('/api/members')]);
+  modal({ title: `Access to "${f.name}"`, submit: 'Save',
+    body: `<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="restricted" ${a.restricted ? 'checked' : ''}> Restrict this folder to selected members</label>
+      <span class="m">Admins and the folder's creator always have access. Subfolders follow this setting.</span>
+      <div class="members" id="mem">${members.map((u) => `<label><input type="checkbox" name="u" value="${u.id}" ${a.user_ids.includes(u.id) || u.id === a.created_by ? 'checked' : ''}
+        ${u.id === a.created_by ? 'disabled' : ''}> ${esc(u.name)}${u.id === a.created_by ? ' <span class="m">(creator)</span>' : ''}</label>`).join('')}</div>`,
+    onOk: async (v, form) => {
+      const ids = $$('input[name=u]:checked:not(:disabled)', form).map((i) => Number(i.value));
+      await api(`/api/folders/${f.id}/access`, { method: 'PUT', body: { restricted: !!v.restricted, user_ids: ids } });
+      render();
+    } });
+  const sync = () => { $('#mem').style.opacity = $('input[name=restricted]').checked ? 1 : 0.45; };
+  $('input[name=restricted]').onchange = sync; sync();
+}
+
+function changePassword() {
+  modal({ title: 'Change password', submit: 'Save',
+    body: field('current', 'Current password', 'password', 'required autocomplete="current-password"') +
+      field('password', 'New password (8+ characters)', 'password', 'required minlength="8" autocomplete="new-password"') +
+      field('confirm', 'Repeat new password', 'password', 'required minlength="8" autocomplete="new-password"'),
+    onOk: async (v) => {
+      if (v.password !== v.confirm) throw new Error("New passwords don't match");
+      await api('/api/me/password', { method: 'POST', body: v });
+      setTimeout(() => notify('Password changed.'));
+    } });
+}
+function resetPassword(u) {
+  modal({ title: `Reset password for ${u.name}`, submit: 'Reset',
+    body: field('password', 'New password (8+ characters)', 'password', 'required minlength="8" autocomplete="new-password"'),
+    onOk: async (v) => { await api(`/api/users/${u.id}/password`, { method: 'POST', body: v }); setTimeout(() => notify('Password reset. Share it with them privately.')); } });
+}
+
+// ---------- Views ----------
 async function render() {
+  closeMenu();
+  $$('[data-v]').forEach((b) => b.classList.toggle('on', b.dataset.v === view));
+  usage();
   const m = $('#main');
   try {
     if (view === 'files') {
       const d = await api(`/api/folders/${folder}`);
-      const crumbs = [`<a data-open="root">My team</a>`, ...d.crumbs.map((c) => `<a data-open="${c.id}">${esc(c.name)}</a>`)].join('<span>/</span>');
-      m.innerHTML = `<div class="bar"><div class="crumbs" style="flex:1">${crumbs}</div><button id="nf">New folder</button><button class="p" id="up">Upload</button></div>
-        <div id="drop">Drag files here to upload</div><div id="prog" class="prog"></div>${rows(d.folders, d.files)}`;
-      $('#nf').onclick = async () => { const n = prompt('Folder name'); if (n) { await api('/api/folders', { method: 'POST', body: { name: n, parent_id: folder } }); render(); } };
-      $('#up').onclick = () => $('#picker').click();
+      const crumbs = [`<a data-open="root">My team</a>`, ...d.crumbs.map((c) => `<a data-open="${c.id}">${esc(c.name)}${c.restricted ? ' 🔒' : ''}</a>`)].join('<span>/</span>');
+      m.innerHTML = `<div class="bar"><div class="crumbs" style="flex:1">${crumbs}</div>
+        ${folder !== 'root' ? '<button id="zip" class="hide-s">Download zip</button>' : ''}<button id="nf">New folder</button><button class="p" id="up">Upload ▾</button></div>
+        <div id="drop">Drag files or folders here to upload</div><div id="prog" class="prog"></div>${table(d.folders, d.files)}`;
+      bindTable(d.folders, d.files);
+      $('#zip') && ($('#zip').onclick = () => { location.href = `/api/folders/${folder}/zip`; });
+      $('#nf').onclick = () => modal({ title: 'New folder', submit: 'Create', body: field('name', 'Folder name', 'text', 'required'),
+        onOk: async (v) => { await api('/api/folders', { method: 'POST', body: { name: v.name, parent_id: folder } }); render(); } });
+      $('#up').onclick = (e) => { e.stopPropagation(); menu(e.currentTarget, [
+        { label: 'Upload files', run: () => $('#picker').click() },
+        { label: 'Upload a folder', run: () => $('#dirPicker').click() }]); };
       const drop = $('#drop');
       drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('on'); };
       drop.ondragleave = () => drop.classList.remove('on');
-      drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove('on'); upload([...e.dataTransfer.files]); };
+      drop.ondrop = async (e) => { e.preventDefault(); drop.classList.remove('on'); upload(await droppedFiles(e.dataTransfer)); };
     } else if (view === 'search') {
       const d = await api(`/api/search?q=${encodeURIComponent($('#search').value)}`);
-      m.innerHTML = `<div class="bar"><b>Search results</b></div>${rows(d.folders, d.files)}`;
+      m.innerHTML = `<div class="bar"><b>Search results</b></div>${table(d.folders, d.files)}`;
+      bindTable(d.folders, d.files);
     } else if (view === 'trash') {
       const d = await api('/api/trash');
-      m.innerHTML = `<div class="bar"><b>Trash</b><span class="m">Restore anything deleted by mistake.${me.is_admin ? ' "Delete forever" removes it from TeamDrive; the stored file is kept 30 more days, then erased.' : ''}</span></div>${rows(d.folders, d.files, { trash: true })}`;
+      m.innerHTML = `<div class="bar"><b>Trash</b><span class="m">Restore anything deleted by mistake.${me.is_admin ? ' "Delete forever" keeps the stored copy 30 more days, then erases it.' : ''}</span></div>${table(d.folders, d.files, { trash: true })}`;
+      bindTable(d.folders, d.files, { trash: true });
+    } else if (view === 'shares') {
+      const links = await api('/api/shares');
+      m.innerHTML = `<div class="bar"><b>Shared links</b><span class="m">${me.is_admin ? 'All links on the team.' : 'Links you created.'}</span></div>
+        <table><tr><th>File</th><th class="hide-s">Created by</th><th class="hide-s">Expires</th><th class="hide-s">Downloads</th><th>Status</th><th></th></tr>
+        ${links.map((l) => `<tr><td>${esc(l.file_name)}${l.has_password ? '<span class="tag">🔑 password</span>' : ''}</td><td class="m hide-s">${esc(l.creator)}</td>
+          <td class="m hide-s">${l.expires_at ? when(l.expires_at) : 'Never'}</td><td class="m hide-s">${l.downloads}</td><td class="m">${esc(l.status)}</td>
+          <td class="acts">${l.status === 'active' ? `<button data-cpl="${esc(l.url)}">Copy</button> ` : ''}<button class="d" data-rv="${l.id}">${l.status === 'active' ? 'Revoke' : 'Remove'}</button></td></tr>`).join('')
+          || '<tr><td colspan="6" class="m">No links yet. Use ⋯ → Share link on any file.</td></tr>'}</table>`;
+      $$('[data-cpl]').forEach((b) => b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.cpl); b.textContent = 'Copied'; } catch { showLink(b.dataset.cpl); } });
+      $$('[data-rv]').forEach((b) => b.onclick = () => modal({ title: 'Revoke this link?', body: '<span class="m">It stops working immediately.</span>', submit: 'Revoke',
+        onOk: async () => { await api(`/api/shares/${b.dataset.rv}`, { method: 'DELETE' }); render(); } }));
     } else if (view === 'users') {
       const us = await api('/api/users');
       m.innerHTML = `<div class="bar"><b>Team members</b></div>
         <form id="uf" class="bar"><input name="name" placeholder="Name" required style="max-width:180px"><input name="email" type="email" placeholder="Email" required style="max-width:220px">
-        <input name="password" type="password" placeholder="Temp password (8+)" required minlength="8" style="max-width:200px"><label class="m"><input type="checkbox" name="is_admin" style="width:auto"> Admin</label><button class="p">Add</button></form>
-        <table><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr>${us.map((u) => `<tr><td>${esc(u.name)}</td><td class="m">${esc(u.email)}</td><td class="m">${u.is_admin ? 'Admin' : 'Member'}</td>
-        <td class="acts">${u.id === me.id ? '' : `<button data-rp="${u.id}" data-name="${esc(u.name)}">Reset password</button> <button class="d" data-du="${u.id}">Remove</button>`}</td></tr>`).join('')}</table>`;
-      document.querySelectorAll('[data-rp]').forEach((b) => b.onclick = () => resetPassword(b.dataset.rp, b.dataset.name));
+        <input name="password" type="password" placeholder="Temp password (8+)" required minlength="8" style="max-width:200px" autocomplete="new-password">
+        <label class="m"><input type="checkbox" name="is_admin"> Admin</label><button class="p">Add</button></form>
+        <table><tr><th>Name</th><th class="hide-s">Email</th><th>Role</th><th></th></tr>${us.map((u) => `<tr><td>${esc(u.name)}</td><td class="m hide-s">${esc(u.email)}</td>
+        <td class="m">${u.is_admin ? 'Admin' : 'Member'}</td><td class="acts">${u.id === me.id ? '' : `<button data-um="${u.id}">⋯</button>`}</td></tr>`).join('')}</table>`;
       $('#uf').onsubmit = async (e) => { e.preventDefault(); const f = new FormData(e.target);
-        try { await api('/api/users', { method: 'POST', body: { name: f.get('name'), email: f.get('email'), password: f.get('password'), is_admin: !!f.get('is_admin') } }); render(); } catch (err) { alert(err.message); } };
-      document.querySelectorAll('[data-du]').forEach((b) => b.onclick = async () => { if (confirm('Remove this user?')) { try { await api(`/api/users/${b.dataset.du}`, { method: 'DELETE' }); render(); } catch (err) { alert(err.message); } } });
+        try { await api('/api/users', { method: 'POST', body: { name: f.get('name'), email: f.get('email'), password: f.get('password'), is_admin: !!f.get('is_admin') } }); render(); }
+        catch (err) { notify(err.message); } };
+      const U = Object.fromEntries(us.map((u) => [u.id, u]));
+      $$('[data-um]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); const u = U[b.dataset.um]; menu(b, [
+        { label: 'Reset password…', run: () => resetPassword(u) },
+        { label: 'Remove member', danger: true, run: () => modal({ title: `Remove ${u.name}?`, submit: 'Remove',
+            onOk: async () => { await api(`/api/users/${u.id}`, { method: 'DELETE' }); render(); }, body: '' }) }]); });
     }
-    bind();
   } catch (err) {
     if (err.message === 'Not signed in') return loginView();
+    if (err.message === 'Folder not found' && folder !== 'root') { folder = 'root'; return render(); }
     m.innerHTML = `<div class="err">${esc(err.message)}</div>`;
   }
 }
 
+// ---------- Uploads ----------
+// Returns [{file, dirs: ["sub","dir"]}]
+async function droppedFiles(dt) {
+  const entries = [...(dt.items || [])].map((i) => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+  if (!entries.length) return [...dt.files].map((file) => ({ file, dirs: [] }));
+  const out = [];
+  const readAll = (reader) => new Promise((res, rej) => { const all = []; const next = () => reader.readEntries((b) => b.length ? (all.push(...b), next()) : res(all), rej); next(); });
+  async function walk(entry, dirs) {
+    if (entry.isFile) out.push({ file: await new Promise((res, rej) => entry.file(res, rej)), dirs });
+    else if (entry.isDirectory) for (const c of await readAll(entry.createReader())) await walk(c, [...dirs, entry.name]);
+  }
+  for (const e of entries) await walk(e, []);
+  return out;
+}
 function put(url, file, onp) {
   return new Promise((res, rej) => {
     const x = new XMLHttpRequest();
@@ -199,18 +386,36 @@ function put(url, file, onp) {
     x.send(file);
   });
 }
-async function upload(files) {
-  const p = $('#prog');
-  for (const [i, f] of files.entries()) {
+async function upload(items) {
+  if (!items.length) return;
+  const base = folder, p = $('#prog'), cache = {}, errors = [];
+  let versioned = 0;
+  const target = async (dirs) => {
+    if (!dirs.length) return base;
+    const k = dirs.join('/');
+    if (!cache[k]) cache[k] = api('/api/folders/ensure', { method: 'POST', body: { parent_id: base, path: dirs } }).then((r) => r.id);
+    return cache[k];
+  };
+  for (const [i, { file, dirs }] of items.entries()) {
+    if (file.name === '.DS_Store' || file.name === 'Thumbs.db') continue;
     try {
-      const { id, url } = await api('/api/files/init', { method: 'POST', body: { name: f.name, size: f.size, mime: f.type, folder_id: folder } });
-      await put(url, f, (r) => p.textContent = `Uploading ${f.name} (${i + 1}/${files.length}) — ${Math.round(r * 100)}%`);
-      await api(`/api/files/${id}/complete`, { method: 'POST' });
-    } catch (err) { alert(`${f.name}: ${err.message}`); }
+      const folder_id = await target(dirs);
+      const { id, url } = await api('/api/files/init', { method: 'POST', body: { name: file.name, size: file.size, mime: file.type, folder_id } });
+      await put(url, file, (r) => { if (p) p.textContent = `Uploading ${file.name} (${i + 1}/${items.length}) — ${Math.round(r * 100)}%`; });
+      const r = await api(`/api/files/${id}/complete`, { method: 'POST' });
+      if (r.versioned) versioned++;
+    } catch (err) { errors.push(`${file.name}: ${err.message}`); }
   }
-  p.textContent = ''; render();
+  if ($('#prog')) $('#prog').textContent = '';
+  render();
+  if (errors.length) notify(`${errors.length} upload(s) failed — ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? '…' : ''}`);
+  else if (versioned) notify(`${versioned} file(s) already existed and were saved as new versions.`);
 }
-$('#picker').onchange = (e) => { upload([...e.target.files]); e.target.value = ''; };
+$('#picker').onchange = (e) => { upload([...e.target.files].map((file) => ({ file, dirs: [] }))); e.target.value = ''; };
+$('#dirPicker').onchange = (e) => {
+  upload([...e.target.files].map((file) => ({ file, dirs: (file.webkitRelativePath || '').split('/').slice(0, -1) })));
+  e.target.value = '';
+};
 
 api('/api/me').then((u) => { me = u; shell(); }).catch(() => loginView());
 </script>
