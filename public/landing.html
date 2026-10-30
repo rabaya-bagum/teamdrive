@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TeamDrive by Equawire</title>
+<meta name="description" content="Private file storage and sharing for small teams. Restricted folders, file versions, password-protected links and two-step login. Made in Ontario, Canada.">
+<link rel="preload" href="/fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face{font-family:"Bricolage Grotesque";src:url(/fonts/bricolage-grotesque.woff2) format("woff2");font-weight:200 800;font-display:swap}
+:root{
+  --paper:#EEF2F6; --sheet:#FFFFFF; --ink:#16213A; --mute:#5B6475; --line:#D7DEE7;
+  --blue:#2F6BFF; --blue-ink:#1F4FD1; --manila:#F3C969; --manila-edge:#D9A93A;
+  --display:"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --body:system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#0F1626; --sheet:#172036; --ink:#E7ECF5; --mute:#9AA6BC; --line:#28334D;
+  --blue:#6B93FF; --blue-ink:#8FAEFF; --manila:#C9A24A; --manila-edge:#A5822E;
+}}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.6 var(--body);-webkit-font-smoothing:antialiased}
+a{color:var(--blue-ink)}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px;border-radius:4px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+
+/* Nav */
+nav{display:flex;align-items:center;gap:16px;padding:20px 0}
+.brand{font:700 21px/1 var(--display);color:var(--ink);text-decoration:none;letter-spacing:-.01em}
+.brand span{font:400 14px var(--body);color:var(--mute);margin-left:6px;letter-spacing:0}
+nav .sp{flex:1}
+.btn{display:inline-block;font:600 16px/1 var(--body);padding:13px 20px;border-radius:10px;text-decoration:none;border:1.5px solid transparent;cursor:pointer}
+.btn.primary{background:var(--blue);color:#fff}
+.btn.primary:hover{background:var(--blue-ink)}
+.btn.quiet{color:var(--ink);border-color:var(--line);background:transparent}
+.btn.quiet:hover{border-color:var(--ink)}
+
+/* Hero */
+.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:56px;align-items:center;padding:48px 0 88px}
+h1{font:750 clamp(40px,5.6vw,68px)/1.02 var(--display);letter-spacing:-.025em;margin:0 0 22px;max-width:12ch}
+.lede{font-size:19px;color:var(--mute);max-width:34ch;margin:0 0 30px}
+.ctas{display:flex;gap:12px;flex-wrap:wrap}
+
+/* The folder (the one bold element) */
+.folder{position:relative;padding-top:30px;filter:drop-shadow(0 18px 30px rgba(22,33,58,.14))}
+.folder .tab{position:absolute;top:0;left:0;height:34px;width:44%;background:var(--manila);border:1.5px solid var(--manila-edge);border-bottom:0;border-radius:12px 12px 0 0;padding:6px 16px;font:650 15px var(--display);color:#3B2C08}
+.folder .body{position:relative;background:var(--manila);border:1.5px solid var(--manila-edge);border-radius:0 14px 14px 14px;padding:14px}
+.sheet{background:var(--sheet);border-radius:8px;border:1px solid var(--line);overflow:hidden;font-size:14px}
+.crumbs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;white-space:nowrap;padding:12px 16px;border-bottom:1px solid var(--line);color:var(--mute)}
+.crumbs b{color:var(--ink);font-weight:600}
+.row{display:grid;grid-template-columns:1fr auto auto;gap:14px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row .n{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .w{color:var(--mute);font-size:13px}
+.pill{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:2px 9px;color:var(--mute);white-space:nowrap}
+.pill.lock{border-color:var(--manila-edge);color:#7A5A12;background:#FDF4DC}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn.primary{color:#0F1626}:root:not([data-theme="light"]) .btn.primary:hover{background:#A9C0FF}}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .pill.lock{background:#3A2F14;color:#F1D58F}}
+.link-pop{position:absolute;right:-14px;bottom:-26px;width:min(300px,78%);background:var(--sheet);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13px;box-shadow:0 10px 24px rgba(22,33,58,.16)}
+.link-pop b{display:block;font-size:14px;margin-bottom:6px}
+.link-pop .url{display:block;background:var(--paper);border-radius:6px;padding:6px 8px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:6px}
+
+/* Sections */
+section{padding:72px 0;border-top:1px solid var(--line)}
+h2{font:700 clamp(28px,3.4vw,40px)/1.1 var(--display);letter-spacing:-.02em;margin:0 0 12px;max-width:20ch}
+.intro{color:var(--mute);max-width:56ch;margin:0 0 40px}
+.split{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:56px}
+dl.features{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:30px 44px;margin:0}
+dl.features dt{font:650 19px/1.3 var(--display);margin-bottom:6px}
+dl.features dd{margin:0;color:var(--mute)}
+ul.facts{list-style:none;margin:0;padding:0;display:grid;gap:0}
+ul.facts li{display:grid;grid-template-columns:28px 1fr;gap:10px;padding:16px 0;border-bottom:1px solid var(--line)}
+ul.facts li:first-child{padding-top:0}
+ul.facts svg{margin-top:4px}
+ul.facts b{display:block;font-weight:600}
+ul.facts span{color:var(--mute)}
+.price{font:650 22px/1.4 var(--display);max-width:30ch;margin:0 0 12px}
+
+/* Form */
+form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;max-width:640px}
+label{display:grid;gap:6px;font-weight:600;font-size:15px}
+label .opt{font-weight:400;color:var(--mute)}
+input,select,textarea{font:inherit;font-weight:400;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;background:var(--sheet);color:var(--ink);width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);outline:none}
+textarea{min-height:96px;resize:vertical}
+.full{grid-column:1/-1}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.note{font-size:14px;color:var(--mute);margin:0}
+.msg{grid-column:1/-1;padding:14px 16px;border-radius:10px;display:none}
+.msg.ok{display:block;background:#E3F5E9;color:#14532D}
+.msg.err{display:block;background:#FDE8E8;color:#8A1C1C}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .msg.ok{background:#11331F;color:#B7F0C8}:root:not([data-theme="light"]) .msg.err{background:#3A1515;color:#F8C4C4}}
+
+footer{padding:32px 0 48px;border-top:1px solid var(--line);color:var(--mute);font-size:14px;display:flex;gap:20px;flex-wrap:wrap}
+footer .sp{flex:1}
+
+@media (max-width:880px){
+  .hero{grid-template-columns:1fr;gap:56px;padding:24px 0 72px}
+  .split{grid-template-columns:1fr;gap:24px}
+  .link-pop{right:8px}
+}
+@media (max-width:600px){
+  .wrap{padding:0 16px}
+  body{font-size:16px}
+  dl.features{grid-template-columns:1fr}
+  form{grid-template-columns:1fr}
+  .row{grid-template-columns:1fr auto}.row .w{display:none}
+  .folder .tab{width:62%}
+  section{padding:56px 0}
+  .brand{font-size:19px}.brand span{font-size:13px}
+  .crumbs .path{display:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav aria-label="Main">
+    <a class="brand" href="/">TeamDrive<span>by Equawire</span></a>
+    <div class="sp"></div>
+    <a class="btn quiet" href="/login">Sign in</a>
+  </nav>
+
+  <header class="hero">
+    <div>
+      <h1>Your team's files, in one place you control.</h1>
+      <p class="lede">TeamDrive keeps client work organized, private and easy to share, without handing your files to an ad company.</p>
+      <div class="ctas">
+        <a class="btn primary" href="#request">Request access</a>
+        <a class="btn quiet" href="#features">See what's included</a>
+      </div>
+    </div>
+
+    <div class="folder" role="img" aria-label="Example of a TeamDrive folder: a restricted client folder with a contract in three versions and a password-protected share link.">
+      <div class="tab" aria-hidden="true">Clients</div>
+      <div class="body" aria-hidden="true">
+        <div class="sheet">
+          <div class="crumbs"><span class="path">My team / Clients /</span> <b>Northwind</b> <span class="pill lock">🔒 Restricted</span></div>
+          <div class="row"><span class="n">📁 Brand assets</span><span class="w">Priya</span><span class="w">Oct 28</span></div>
+          <div class="row"><span class="n">📄 Contract.pdf</span><span class="pill">3 versions</span><span class="w">Oct 29</span></div>
+          <div class="row"><span class="n">📄 Q4 campaign plan.docx</span><span class="w">Marcus</span><span class="w">Oct 30</span></div>
+          <div class="row"><span class="n">🖼️ Hero photo final.jpg</span><span class="w">Priya</span><span class="w">Oct 30</span></div>
+          <div class="row"><span class="n">📄 Invoice 1042.pdf</span><span class="w">You</span><span class="w">Oct 30</span></div>
+        </div>
+        <div class="link-pop">
+          <b>Link created for Contract.pdf</b>
+          <span class="url">teamdrive.equaflow.io/s/8f2c…</span>
+          Password-protected. Expires in 7 days.
+        </div>
+      </div>
+    </div>
+  </header>
+</div>
+
+<section id="features">
+  <div class="wrap">
+    <h2>What your team gets</h2>
+    <p class="intro">The parts of a file drive that small teams actually use, without the clutter.</p>
+    <dl class="features">
+      <div><dt>Folders only the right people see</dt><dd>Restrict a client folder to the people working on it. Everyone else on the team won't know it's there.</dd></div>
+      <div><dt>Every version kept</dt><dd>Upload a file with the same name and the old one is saved as a version. Download or restore any of them.</dd></div>
+      <div><dt>Links you stay in charge of</dt><dd>Share a file with a password and an expiry date. See how often it was downloaded, and revoke it any time.</dd></div>
+      <div><dt>Preview without downloading</dt><dd>Open images, PDFs, video, audio and text right in the browser.</dd></div>
+      <div><dt>Whole folders in and out</dt><dd>Drag in a folder with everything inside it, or download any folder as a zip.</dd></div>
+      <div><dt>A record of who did what</dt><dd>Admins can see sign-ins, uploads, downloads, deletes and shares, and export them to a spreadsheet.</dd></div>
+      <div><dt>A Trash that forgives</dt><dd>Deleted files go to Trash first. Even after they're deleted for good, we can recover them for 30 days if you ask.</dd></div>
+      <div><dt>Works on any device</dt><dd>Nothing to install. TeamDrive runs in the browser on computers, tablets and phones.</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section id="privacy">
+  <div class="wrap split">
+    <div>
+      <h2>Private by design</h2>
+      <p class="intro" style="margin-bottom:0">Run by Equawire in Ontario, Canada. Here's exactly what that means for your files. The details are in our <a href="/privacy">Privacy Policy</a>.</p>
+    </div>
+    <ul class="facts">
+      <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>No ads, no tracking, no AI training</b><span>We don't sell data, use analytics cookies, or train AI on your files.</span></div></li>
+      <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>Your team is walled off</b><span>Each company gets its own separate space. Other teams can't see anything in yours.</span></div></li>
+      <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>Two-step login for admins</b><span>Admins sign in with a code from an authenticator app. Anyone on the team can turn it on too.</span></div></li>
+      <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>Encrypted in transit and at rest</b><span>Files travel over HTTPS and are stored encrypted with Cloudflare.</span></div></li>
+      <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>You own your files</b><span>If you leave, you get 30 days to download everything before it's deleted.</span></div></li>
+    </ul>
+  </div>
+</section>
+
+<section id="pricing">
+  <div class="wrap split">
+    <div><h2>Pricing</h2></div>
+    <div>
+      <p class="price">Each team gets its own space with a storage limit sized for you.</p>
+      <p class="intro" style="margin-bottom:0">Tell us how many people you have and roughly how much you store, and we'll send you a quote. There's no charge to talk it through.</p>
+    </div>
+  </div>
+</section>
+
+<section id="request">
+  <div class="wrap split">
+    <div>
+      <h2>Request access</h2>
+      <p class="intro">We set up each team by hand, usually within one business day. You'll get your sign-in details by email.</p>
+    </div>
+    <form id="rf" novalidate>
+      <label>Your name<input name="name" required autocomplete="name" maxlength="120"></label>
+      <label>Work email<input name="email" type="email" required autocomplete="email" maxlength="200"></label>
+      <label>Company<input name="company" required autocomplete="organization" maxlength="160"></label>
+      <label>Team size<select name="team_size" required>
+        <option value="">Choose…</option><option>1–5 people</option><option>6–15 people</option><option>16–50 people</option><option>More than 50</option>
+      </select></label>
+      <label class="full"><span>Anything we should know? <span class="opt">(optional)</span></span><textarea name="message" maxlength="2000" placeholder="How much you store, what you share, when you'd like to start…"></textarea></label>
+      <label class="hp" aria-hidden="true">Leave this empty<input name="website" tabindex="-1" autocomplete="off"></label>
+      <div class="msg" id="msg" role="status" aria-live="polite"></div>
+      <div class="full" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+        <button class="btn primary" id="send">Send request</button>
+        <p class="note">We'll only use these details to reply to you. See our <a href="/privacy">Privacy Policy</a>.</p>
+      </div>
+    </form>
+  </div>
+</section>
+
+<div class="wrap">
+  <footer>
+    <span>© <span id="yr"></span> Equawire, Ontario, Canada</span>
+    <span class="sp"></span>
+    <a href="/terms">Terms of Service</a><a href="/privacy">Privacy Policy</a><a href="mailto:privacy@equawire.com">privacy@equawire.com</a><a href="/login">Sign in</a>
+  </footer>
+</div>
+
+<script>
+document.getElementById('yr').textContent = new Date().getFullYear();
+const form = document.getElementById('rf'), msg = document.getElementById('msg'), send = document.getElementById('send');
+const show = (cls, text) => { msg.className = 'msg ' + cls; msg.textContent = text; };
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const missing = [...form.querySelectorAll('[required]')].find((el) => !el.value.trim());
+  if (missing) { show('err', `Please fill in "${missing.closest('label').firstChild.textContent.trim()}".`); missing.focus(); return; }
+  const email = form.email.value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { show('err', 'Please enter a valid work email, like you@yourcompany.com.'); form.email.focus(); return; }
+  send.disabled = true; send.textContent = 'Sending…';
+  try {
+    const r = await fetch('/api/access-requests', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.fromEntries(new FormData(form))) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'Your request could not be sent. Please try again, or email privacy@equawire.com.');
+    form.reset();
+    show('ok', `Request sent. We'll reply to ${email}, usually within one business day.`);
+    send.textContent = 'Request sent';
+  } catch (err) {
+    show('err', err.message);
+    send.disabled = false; send.textContent = 'Send request';
+  }
+});
+</script>
+</body>
+</html>

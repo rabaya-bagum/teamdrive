@@ -25,7 +25,7 @@ h1{font-size:28px;line-height:1.2;margin:0 0 4px}h2{font-size:19px;margin:32px 0
 .summary ul{margin:6px 0 0;padding-left:20px}li{margin:4px 0}a{color:var(--acc)}
 table{border-collapse:collapse;width:100%;font-size:14px;margin:8px 0}td,th{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}th{background:var(--bg)}
 .wrap{overflow-x:auto}footer{color:var(--mute);font-size:13px;text-align:center;margin-top:20px}
-</style></head><body><header><b>TeamDrive</b><a href="/terms">Terms of Service</a><a href="/privacy">Privacy Policy</a><a href="/">Sign in</a></header>
+</style></head><body><header><b>TeamDrive</b><a href="/terms">Terms of Service</a><a href="/privacy">Privacy Policy</a><a href="/">TeamDrive home</a><a href="/login">Sign in</a></header>
 <main><article>${body}</article><footer>© ${new Date().getFullYear()} ${esc(cfg().name)}</footer></main></body></html>`;
 
 function terms() {
@@ -169,6 +169,7 @@ function privacy() {
 <tr><td>Sharing data</td><td>Share links you create, their expiry, optional link passwords (stored as hashes), and how many times they were downloaded</td><td>To make share links work and let you manage them</td></tr>
 <tr><td>Activity log</td><td>Sign-ins and failed sign-ins, uploads, downloads, renames, moves, deletes, restores, sharing, access and member changes, with the time and IP address</td><td>So your team's Admins can see who did what, and to detect misuse</td></tr>
 <tr><td>Technical data</td><td>IP address, browser information and request details in server logs kept by our hosting provider</td><td>To run, secure and troubleshoot the service</td></tr>
+<tr><td>Access requests</td><td>Name, work email, company, team size, your message and IP address, when you use the "Request access" form</td><td>To reply to you and set up your team. Deleted after 12 months.</td></tr>
 <tr><td>Messages to us</td><td>Emails you send us</td><td>To answer you</td></tr>
 </table></div>
 <p>If you only use a share link, we record the download and your IP address in the sharing team's activity log. We don't ask for your name or email.</p>
@@ -218,6 +219,7 @@ function privacy() {
 <li><b>Files</b> stay until your team deletes them. Deleted items go to Trash. When an Admin deletes them for good, they are removed from TeamDrive straight away and erased from storage after 30 days. Older versions are kept until the file itself is deleted for good.</li>
 <li><b>Activity log</b> entries are kept for 12 months, then deleted automatically.</li>
 <li><b>Accounts</b> are kept until an Admin removes them or the Customer's service ends.</li>
+<li><b>Access requests</b> from our website are deleted 12 months after they're received.</li>
 <li><b>Trusted-device tokens</b> expire after 30 days. Sign-in attempt counters are kept in memory for 15 minutes.</li>
 <li><b>When a Customer's service ends,</b> we keep its data for 30 days so it can be downloaded, then delete it. Any backup copies are deleted or overwritten as backups are replaced.</li>
 <li>We may keep limited records longer where the law requires, such as billing records for tax purposes.</li>

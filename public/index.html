@@ -23,7 +23,7 @@ tr.bad td{color:var(--danger)}.filters{display:flex;gap:8px;flex-wrap:wrap;margi
 .when{white-space:nowrap}
 main{max-width:1050px;margin:0 auto;padding:16px}
 .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
-.crumbs a{color:var(--acc);cursor:pointer}.login a{color:var(--acc)}.crumbs span{color:var(--mute);margin:0 4px}
+.crumbs a{color:var(--acc);cursor:pointer}td a{color:var(--acc)}.login a{color:var(--acc)}.crumbs span{color:var(--mute);margin:0 4px}
 table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
 td,th{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
 th{font-size:12px;color:var(--mute);font-weight:600;user-select:none}th.s{cursor:pointer}th.s:hover{color:var(--ink)}
@@ -147,7 +147,7 @@ async function afterLogin() {
   me = await api('/api/me');
   me.must_setup_2fa ? setupGate() : shell();
 }
-async function logout() { await api('/api/logout', { method: 'POST' }).catch(() => {}); me = null; loginView(); }
+async function logout() { await api('/api/logout', { method: 'POST' }).catch(() => {}); me = null; location.href = '/login'; }
 
 // ---------- Two-step login setup ----------
 function setupGate() {
@@ -220,6 +220,7 @@ async function twoStepDialog() {
 }
 
 function shell() {
+  if (location.pathname === '/login') history.replaceState(null, '', '/');
   $('#app').innerHTML = `<header><b>TeamDrive</b><span class="team hide-s" title="${esc(me.team_name)}">${esc(me.team_name)}</span>
     <button data-v="files">Files</button><button data-v="shares">Shared links</button><button data-v="trash">Trash</button>${me.is_admin ? '<button data-v="users">Users</button><button data-v="activity">Activity</button>' : ''}${me.is_owner ? '<button data-v="teams">Teams</button>' : ''}
     <div class="sp"></div><span id="usage" class="hide-s"></span><input id="search" placeholder="Search files…">
@@ -528,8 +529,14 @@ async function activityView(m) {
 
 // ---------- Teams (owner) ----------
 async function teamsView(m) {
-  const teams = await api('/api/owner/teams');
-  m.innerHTML = `<div class="bar"><b>Teams</b><span class="m">Only you (the TeamDrive owner) see this page. You can't open other teams' files.</span><div style="flex:1"></div><button class="p" id="nt">New team</button></div>
+  const [teams, reqs] = await Promise.all([api('/api/owner/teams'), api('/api/owner/requests')]);
+  const open = reqs.filter((r) => !r.handled_at);
+  const reqHtml = reqs.length ? `<div class="bar" style="margin-top:4px"><b>Access requests</b><span class="m">${open.length ? `${open.length} waiting` : 'All handled'} · from the "Request access" form on your home page</span></div>
+    <table style="margin-bottom:28px"><tr><th>From</th><th class="hide-s">Team size</th><th class="hide-s">Message</th><th class="hide-s">Received</th><th></th></tr>
+    ${reqs.map((r) => `<tr style="${r.handled_at ? 'opacity:.55' : ''}"><td><b>${esc(r.company)}</b><div class="m">${esc(r.name)} · <a href="mailto:${esc(r.email)}">${esc(r.email)}</a></div></td>
+      <td class="m hide-s">${esc(r.team_size)}</td><td class="m hide-s" style="max-width:320px">${esc(r.message || '—')}</td><td class="m hide-s">${day(r.created_at)}</td>
+      <td class="acts">${r.handled_at ? `<button data-rq-undo="${r.id}">Reopen</button>` : `<button class="p" data-rq-create="${r.id}">Create team</button> <button data-rq-done="${r.id}">Mark handled</button>`}</td></tr>`).join('')}</table>` : '';
+  m.innerHTML = `${reqHtml}<div class="bar"><b>Teams</b><span class="m">Only you (the TeamDrive owner) see this page. You can't open other teams' files.</span><div style="flex:1"></div><button class="p" id="nt">New team</button></div>
     <table><tr><th>Team</th><th class="hide-s">Admins</th><th class="hide-s">Members</th><th>Storage</th><th class="hide-s">Created</th><th></th></tr>
     ${teams.map((t) => { const pct = t.quota_bytes ? Math.min(100, (t.used / t.quota_bytes) * 100) : 0;
       return `<tr><td>${esc(t.name)}${t.mine ? '<span class="tag">your team</span>' : ''}${t.disabled ? '<span class="tag" style="color:var(--danger)">disabled</span>' : ''}</td>
@@ -537,14 +544,25 @@ async function teamsView(m) {
       <td class="m">${fmt(t.used)} ${t.quota_bytes ? `of ${fmt(t.quota_bytes)}<div class="qbar"><i class="${pct >= 90 ? 'hi' : ''}" style="width:${pct}%"></i></div>` : '· no limit'}</td>
       <td class="m hide-s">${day(t.created_at)}</td><td class="acts"><button data-tm="${t.id}">⋯</button></td></tr>`; }).join('')}</table>`;
   const byId = Object.fromEntries(teams.map((t) => [t.id, t]));
-  $('#nt').onclick = () => modal({ title: 'New team', submit: 'Create team',
-    body: field('name', 'Team (company) name', 'text', 'required') +
+  const tempPw = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => 'abcdefghjkmnpqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 54]).join('');
+  const newTeam = (pre = {}) => modal({ title: 'New team', submit: 'Create team',
+    body: field('name', 'Team (company) name', 'text', `required value="${esc(pre.company || '')}"`) +
       field('quota_gb', 'Storage limit in GB (leave empty for no limit)', 'number', 'min="0" step="any" value="50"') +
-      '<b style="margin-top:6px">First admin</b>' + field('admin_name', 'Name', 'text', 'required') + field('admin_email', 'Email', 'email', 'required') +
-      field('admin_password', 'Temporary password (8+ characters)', 'text', 'required minlength="8" autocomplete="off"') +
+      '<b style="margin-top:6px">First admin</b>' + field('admin_name', 'Name', 'text', `required value="${esc(pre.name || '')}"`) +
+      field('admin_email', 'Email', 'email', `required value="${esc(pre.email || '')}"`) +
+      field('admin_password', 'Temporary password (8+ characters)', 'text', `required minlength="8" autocomplete="off" value="${tempPw()}"`) +
       '<span class="m">They will be asked to set up two-step login the first time they sign in, and can change the password from their account menu.</span>',
-    onOk: async (v) => { await api('/api/owner/teams', { method: 'POST', body: v }); render();
-      setTimeout(() => notify(`Team "${v.name}" is ready. Send ${v.admin_email} the sign-in address and their temporary password (separately).`)); } });
+    onOk: async (v) => {
+      await api('/api/owner/teams', { method: 'POST', body: v });
+      if (pre.id) await api(`/api/owner/requests/${pre.id}`, { method: 'PATCH', body: { handled: true } });
+      render();
+      setTimeout(() => notify(`Team "${v.name}" is ready. Email ${v.admin_email} the sign-in address (${location.origin}/login) and, separately, their temporary password: ${v.admin_password}`));
+    } });
+  $('#nt').onclick = () => newTeam();
+  const R = Object.fromEntries(reqs.map((r) => [r.id, r]));
+  $$('[data-rq-create]').forEach((b) => b.onclick = () => newTeam(R[b.dataset.rqCreate]));
+  $$('[data-rq-done]').forEach((b) => b.onclick = async () => { await api(`/api/owner/requests/${b.dataset.rqDone}`, { method: 'PATCH', body: { handled: true } }); render(); });
+  $$('[data-rq-undo]').forEach((b) => b.onclick = async () => { await api(`/api/owner/requests/${b.dataset.rqUndo}`, { method: 'PATCH', body: { handled: false } }); render(); });
   $$('[data-tm]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); const t = byId[b.dataset.tm]; menu(b, [
     { label: 'Edit name & storage…', run: () => modal({ title: `Edit "${t.name}"`, submit: 'Save',
         body: field('name', 'Team name', 'text', `required value="${esc(t.name)}"`) +

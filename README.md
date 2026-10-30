@@ -20,6 +20,11 @@ npm run create-user -- you@equawire.com "Nazmul" "a-strong-password" --admin
 ```
 5. Start the app and open your domain. Add teammates from the **Users** tab.
 
+## Home page and access requests
+Signed-out visitors to `/` see a landing page ("TeamDrive by Equawire", `public/landing.html`); signed-in people go straight to their files, and the sign-in form is at `/login`. The *Request access* form saves requests to the `access_requests` table (spam trap + 5 per 15 minutes per network). They appear at the top of the owner's **Teams** page with a one-click *Create team* that pre-fills the form. Requests are deleted after 12 months. No email is sent yet, so check the Teams page (each new request is also printed to the server log).
+
+The headline font (Bricolage Grotesque, SIL Open Font License, see `public/fonts/`) is served from your own server so visitors' browsers never contact Google.
+
 ## Terms of Service and Privacy Policy
 Served at `/terms` and `/privacy` and linked from the sign-in page, share-link pages and the account menu. The business name, contact email and date come from `.env` (`LEGAL_NAME`, `LEGAL_OPERATOR`, `LEGAL_EMAIL`, `LEGAL_UPDATED`), so you can update them after incorporating without touching code. The text itself is in `src/legal.js`. If you change how TeamDrive handles data (new providers, analytics, retention), update the policy too.
 

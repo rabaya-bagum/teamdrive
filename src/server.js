@@ -723,6 +723,7 @@ async function runPurge() {
     for (const d of due) { await r2.remove(d.r2_key); await q('DELETE FROM purge_queue WHERE id=?', [d.id]); }
     if (due.length) console.log(`Purged ${due.length} object(s) from storage`);
     await q('DELETE FROM activity_log WHERE created_at < NOW() - INTERVAL ? DAY', [ACTIVITY_DAYS]);
+    await q('DELETE FROM access_requests WHERE created_at < NOW() - INTERVAL 365 DAY');
   } catch (e) { console.error('Purge job failed:', e.message); }
 }
 
@@ -890,9 +891,35 @@ app.patch('/api/owner/teams/:id', auth, owner, wrap(async (req, res) => {
 }));
 
 // ---------- Frontend ----------
+// ---------- Access requests (public landing page form) ----------
+app.post('/api/access-requests', wrap(async (req, res) => {
+  const key = `req:${req.ip}`;
+  if (tooMany(key, 5)) return res.status(429).json({ error: 'Too many requests from your network. Please try again later, or email privacy@equawire.com.' });
+  addFail(key);
+  if (req.body.website) return res.json({ ok: true }); // spam trap: humans never fill this hidden field
+  const f = (k, max) => String(req.body[k] || '').trim().slice(0, max);
+  const name = f('name', 120), email = f('email', 200).toLowerCase(), company = f('company', 160), size = f('team_size', 40), message = f('message', 2000);
+  if (!name || !company || !size) return res.status(400).json({ error: 'Please fill in your name, company and team size.' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Please enter a valid work email, like you@yourcompany.com.' });
+  await q('INSERT INTO access_requests (name, email, company, team_size, message, ip) VALUES (?,?,?,?,?,?)', [name, email, company, size, message || null, String(req.ip || '').slice(0, 64)]);
+  console.log(`New access request from ${company} (${email})`);
+  res.json({ ok: true });
+}));
+app.get('/api/owner/requests', auth, owner, wrap(async (req, res) => {
+  res.json(await q('SELECT * FROM access_requests ORDER BY handled_at IS NOT NULL, created_at DESC LIMIT 200'));
+}));
+app.patch('/api/owner/requests/:id', auth, owner, wrap(async (req, res) => {
+  await q('UPDATE access_requests SET handled_at=? WHERE id=?', [req.body.handled ? new Date() : null, req.params.id]);
+  res.json({ ok: true });
+}));
+
 app.get('/terms', (req, res) => res.send(legal.terms()));
 app.get('/privacy', (req, res) => res.send(legal.privacy()));
-app.use(express.static(path.join(__dirname, '..', 'public')));
+// Signed-out visitors see the landing page; signed-in people go straight to their files.
+const PUBLIC = path.join(__dirname, '..', 'public');
+app.get('/', (req, res) => res.sendFile(path.join(PUBLIC, req.session.user?.v === SESSION_V ? 'index.html' : 'landing.html')));
+app.get('/login', (req, res) => res.sendFile(path.join(PUBLIC, 'index.html')));
+app.use(express.static(PUBLIC, { index: false }));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'index.html')));
 
 app.use((err, req, res, next) => {
@@ -972,6 +999,10 @@ async function migrate() {
     target_type VARCHAR(20) NULL, target_id INT NULL, target_name VARCHAR(255) NULL, detail VARCHAR(500) NULL,
     ip VARCHAR(64) NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_activity_team (team_id, id), INDEX idx_activity_user (team_id, user_id, id))`);
+  await q(`CREATE TABLE IF NOT EXISTS access_requests (
+    id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(120) NOT NULL, email VARCHAR(200) NOT NULL, company VARCHAR(160) NOT NULL,
+    team_size VARCHAR(40) NOT NULL, message TEXT NULL, ip VARCHAR(64) NULL, handled_at DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
 }
 
 migrate()

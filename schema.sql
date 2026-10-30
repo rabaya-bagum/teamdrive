@@ -138,3 +138,16 @@ CREATE TABLE IF NOT EXISTS activity_log (
   INDEX idx_activity_team (team_id, id),
   INDEX idx_activity_user (team_id, user_id, id)
 );
+
+-- "Request access" form on the landing page. Deleted after 12 months.
+CREATE TABLE IF NOT EXISTS access_requests (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  email VARCHAR(200) NOT NULL,
+  company VARCHAR(160) NOT NULL,
+  team_size VARCHAR(40) NOT NULL,
+  message TEXT NULL,
+  ip VARCHAR(64) NULL,
+  handled_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
