@@ -23,7 +23,7 @@ tr.bad td{color:var(--danger)}.filters{display:flex;gap:8px;flex-wrap:wrap;margi
 .when{white-space:nowrap}
 main{max-width:1050px;margin:0 auto;padding:16px}
 .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
-.crumbs a{color:var(--acc);cursor:pointer}td a{color:var(--acc)}.login a{color:var(--acc)}.crumbs span{color:var(--mute);margin:0 4px}
+.crumbs a{color:var(--acc);cursor:pointer}td a{color:var(--acc)}.login a{color:var(--acc)}.login a.home{color:inherit;text-decoration:none;justify-self:start}.login a.home:hover b{text-decoration:underline}.crumbs span{color:var(--mute);margin:0 4px}
 table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
 td,th{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
 th{font-size:12px;color:var(--mute);font-weight:600;user-select:none}th.s{cursor:pointer}th.s:hover{color:var(--ink)}
@@ -114,10 +114,11 @@ const closeMenu = () => $('#menu')?.remove();
 
 // ---------- Auth & shell ----------
 function loginView(msg = '') {
-  $('#app').innerHTML = `<form class="login" id="lf"><b style="font-size:20px">TeamDrive</b>
+  $('#app').innerHTML = `<form class="login" id="lf"><a href="/" class="home" title="TeamDrive home"><b style="font-size:20px">TeamDrive</b> <span class="m">by Equawire</span></a>
     <input name="email" type="email" placeholder="Email" required autocomplete="username">
     <input name="password" type="password" placeholder="Password" required autocomplete="current-password">
     <button class="p">Sign in</button><div class="err">${esc(msg)}</div>
+    <span class="m">New to TeamDrive? <a href="/#request">Request access</a></span>
     <span class="m" style="font-size:12px">By signing in you agree to the <a href="/terms" target="_blank">Terms of Service</a> and <a href="/privacy" target="_blank">Privacy Policy</a>.</span></form>`;
   $('#lf').onsubmit = async (e) => {
     e.preventDefault();
