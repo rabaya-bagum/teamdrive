@@ -28,23 +28,33 @@ app.use(
 const MAX_BYTES = Number(process.env.MAX_UPLOAD_MB || 2048) * 1024 * 1024;
 const MAX_ZIP_BYTES = Number(process.env.MAX_ZIP_MB || 5120) * 1024 * 1024;
 const PURGE_DAYS = Number(process.env.PURGE_DAYS || 30);
+const ACTIVITY_DAYS = Number(process.env.ACTIVITY_DAYS || 365);
+const GB = 1024 ** 3;
 
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 const httpErr = (status, message) => Object.assign(new Error(message), { status });
-// Bump SESSION_V to sign everyone out (done when two-step login was added).
-const SESSION_V = 2;
-const auth = (req, res, next) => {
+const cleanName = (s) => String(s || '').replace(/[\/\\\0]/g, '').trim().slice(0, 255);
+const idOrNull = (v) => (v === null || v === undefined || v === '' || v === 'root' ? null : Number(v));
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtBytes = (b) => (b >= GB ? `${(b / GB).toFixed(1)} GB` : `${Math.round(b / 1048576)} MB`);
+
+// ---------- Sessions & roles ----------
+// Bump SESSION_V to sign everyone out (2 = two-step login, 3 = teams).
+const SESSION_V = 3;
+const T = (req) => req.session.user.team_id; // every data query is limited to the signed-in user's team
+
+const auth = wrap(async (req, res, next) => {
   const u = req.session.user;
   if (!u || u.v !== SESSION_V) return res.status(401).json({ error: 'Not signed in' });
+  const [t] = await q('SELECT disabled FROM teams WHERE id=?', [u.team_id]);
+  if (!t || t.disabled) return req.session.destroy(() => res.status(401).json({ error: 'Not signed in' }));
   // Accounts that must use two-step login can only reach the setup screens until it's on.
   if (u.must_setup_2fa && !req.path.startsWith('/api/2fa/') && req.path !== '/api/me')
     return res.status(403).json({ error: 'Set up two-step login first', setup2fa: true });
   next();
-};
+});
 const admin = (req, res, next) => (req.session.user?.is_admin ? next() : res.status(403).json({ error: 'Admins only' }));
-const cleanName = (s) => String(s || '').replace(/[\/\\\0]/g, '').trim().slice(0, 255);
-const idOrNull = (v) => (v === null || v === undefined || v === '' || v === 'root' ? null : Number(v));
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const owner = (req, res, next) => (req.session.user?.is_owner ? next() : res.status(403).json({ error: 'Owner only' }));
 
 // ---------- Rate limiting (in memory) ----------
 const fails = new Map();
@@ -57,11 +67,24 @@ function addFail(key) {
 }
 setInterval(() => { const now = Date.now(); for (const [k, r] of fails) if (r.reset < now) fails.delete(k); }, WINDOW).unref();
 
+// ---------- Activity log ----------
+// log(req, action, { type, id, name }, detail, { teamId, userId }) — never throws.
+async function log(req, action, target = {}, detail = '', who = {}) {
+  try {
+    const u = req.session?.user;
+    const teamId = who.teamId ?? u?.team_id;
+    if (!teamId) return;
+    await q('INSERT INTO activity_log (team_id, user_id, action, target_type, target_id, target_name, detail, ip) VALUES (?,?,?,?,?,?,?,?)',
+      [teamId, who.userId !== undefined ? who.userId : u?.id ?? null, action, target.type || null, target.id || null,
+        target.name ? String(target.name).slice(0, 255) : null, detail ? String(detail).slice(0, 500) : null, String(req.ip || '').slice(0, 64)]);
+  } catch (e) { console.error('activity log failed:', e.message); }
+}
+
 // ---------- Access control ----------
-// Folders are open to everyone unless marked restricted. A restricted folder (and
+// Folders are open to the whole team unless restricted. A restricted folder (and
 // everything inside it) is visible only to admins, its creator, and listed members.
 async function loadAcl(user) {
-  const folders = await q('SELECT id, parent_id, name, restricted, created_by, deleted_at FROM folders');
+  const folders = await q('SELECT id, parent_id, name, restricted, created_by, deleted_at FROM folders WHERE team_id=?', [user.team_id]);
   const byId = new Map(folders.map((f) => [f.id, f]));
   const granted = new Set((await q('SELECT folder_id FROM folder_access WHERE user_id=?', [user.id])).map((r) => r.folder_id));
   const memo = new Map();
@@ -86,20 +109,27 @@ async function loadAcl(user) {
   };
   const visible = (id) => can(id) && alive(id);
   const canManage = (id) => { const f = byId.get(id); return !!f && (user.is_admin || f.created_by === user.id); };
-  return { byId, can, alive, visible, canManage };
+  const pathOf = (id) => { const p = []; for (let c = id; c != null; ) { const f = byId.get(c); if (!f) break; p.unshift(f.name); c = f.parent_id; } return p.join(' / ') || 'top level'; };
+  return { byId, can, alive, visible, canManage, pathOf };
 }
 async function getFile(req, id, extra = "deleted_at IS NULL AND status='ready'") {
-  const [f] = await q(`SELECT * FROM files WHERE id=? AND ${extra}`, [id]);
+  const [f] = await q(`SELECT * FROM files WHERE id=? AND team_id=? AND ${extra}`, [id, T(req)]);
   if (!f) throw httpErr(404, 'File not found');
   const acl = await loadAcl(req.session.user);
   if (!acl.can(f.folder_id) || (extra.includes('deleted_at IS NULL') && !acl.alive(f.folder_id))) throw httpErr(404, 'File not found');
   return f;
 }
 async function requireFolder(req, id) {
-  if (id === null) return null;
   const acl = await loadAcl(req.session.user);
-  if (!acl.visible(id)) throw httpErr(404, 'Folder not found');
+  if (id !== null && !acl.visible(id)) throw httpErr(404, 'Folder not found');
   return acl;
+}
+async function teamUsage(teamId) {
+  const [r] = await q(`SELECT
+    (SELECT COALESCE(SUM(size),0) FROM files WHERE team_id=? AND status='ready') +
+    (SELECT COALESCE(SUM(v.size),0) FROM file_versions v JOIN files f ON f.id=v.file_id WHERE f.team_id=?) AS used,
+    (SELECT COUNT(*) FROM files WHERE team_id=? AND status='ready') AS files`, [teamId, teamId, teamId]);
+  return { used: Number(r.used), files: Number(r.files) };
 }
 
 // ---------- Two-step login helpers ----------
@@ -115,12 +145,14 @@ const cookieOf = (req, name) => {
   }
   return null;
 };
-const sessionUser = (u) => ({ v: SESSION_V, id: u.id, name: u.name, email: u.email, is_admin: !!u.is_admin,
-  must_setup_2fa: requires2fa(u) && !u.totp_enabled });
+const USER_SQL = 'SELECT u.*, t.name AS team_name, t.disabled AS team_disabled FROM users u JOIN teams t ON t.id=u.team_id';
+const sessionUser = (u) => ({ v: SESSION_V, id: u.id, name: u.name, email: u.email, is_admin: !!u.is_admin, is_owner: !!u.is_owner,
+  team_id: u.team_id, team_name: u.team_name, must_setup_2fa: requires2fa(u) && !u.totp_enabled });
 function startSession(req, res, u) {
   req.session.regenerate((err) => {
     if (err) return res.status(500).json({ error: 'Server error' });
     req.session.user = sessionUser(u);
+    log(req, 'login');
     res.json(req.session.user);
   });
 }
@@ -165,6 +197,11 @@ async function checkPassword(userId, password) {
   const [u] = await q('SELECT password_hash FROM users WHERE id=?', [userId]);
   return !!u && bcrypt.compare(String(password || ''), u.password_hash);
 }
+async function teamMember(req, id) {
+  const [u] = await q('SELECT id, name, email, is_admin FROM users WHERE id=? AND team_id=?', [id, T(req)]);
+  if (!u) throw httpErr(404, 'Member not found');
+  return u;
+}
 
 // ---------- Auth ----------
 app.post('/api/login', wrap(async (req, res) => {
@@ -172,11 +209,13 @@ app.post('/api/login', wrap(async (req, res) => {
   const ipKey = `ip:${req.ip}`, userKey = `u:${req.ip}:${email}`;
   if (tooMany(ipKey, 20) || tooMany(userKey, 5))
     return res.status(429).json({ error: 'Too many failed attempts. Try again in 15 minutes.' });
-  const [u] = await q('SELECT * FROM users WHERE email = ?', [email]);
+  const [u] = await q(`${USER_SQL} WHERE u.email = ?`, [email]);
   if (!u || !(await bcrypt.compare(String(req.body.password || ''), u.password_hash))) {
     addFail(ipKey); addFail(userKey);
+    if (u) log(req, 'login_failed', {}, 'Wrong password', { teamId: u.team_id, userId: u.id });
     return res.status(401).json({ error: 'Wrong email or password' });
   }
+  if (u.team_disabled) return res.status(403).json({ error: 'This team account is disabled. Contact the TeamDrive owner.' });
   fails.delete(userKey);
   if (u.totp_enabled && !(await isTrustedDevice(req, u.id))) {
     // Password was right; now ask for the code. Nothing is unlocked until it's verified.
@@ -194,10 +233,11 @@ app.post('/api/login/2fa', wrap(async (req, res) => {
     return res.status(401).json({ error: 'Sign-in timed out. Enter your password again.', restart: true });
   const key = `2fa:${p.uid}`;
   if (tooMany(key, 5)) return res.status(429).json({ error: 'Too many wrong codes. Try again in 15 minutes.' });
-  const [u] = await q('SELECT * FROM users WHERE id=?', [p.uid]);
-  if (!u || !u.totp_enabled) return res.status(401).json({ error: 'Sign-in timed out. Enter your password again.', restart: true });
+  const [u] = await q(`${USER_SQL} WHERE u.id=?`, [p.uid]);
+  if (!u || !u.totp_enabled || u.team_disabled) return res.status(401).json({ error: 'Sign-in timed out. Enter your password again.', restart: true });
   if (!(await checkSecondFactor(u, req.body.code))) {
     addFail(key);
+    log(req, 'login_failed', {}, 'Wrong two-step code', { teamId: u.team_id, userId: u.id });
     return res.status(401).json({ error: 'Wrong code' });
   }
   fails.delete(key);
@@ -206,10 +246,10 @@ app.post('/api/login/2fa', wrap(async (req, res) => {
 }));
 app.post('/api/logout', (req, res) => req.session.destroy(() => res.json({ ok: true })));
 app.get('/api/me', auth, wrap(async (req, res) => {
-  const [u] = await q('SELECT totp_enabled, is_admin FROM users WHERE id=?', [req.session.user.id]);
+  const [u] = await q(`${USER_SQL} WHERE u.id=?`, [req.session.user.id]);
   if (!u) return req.session.destroy(() => res.status(401).json({ error: 'Not signed in' }));
-  const [c] = await q('SELECT COUNT(*) AS n FROM backup_codes WHERE user_id=? AND used_at IS NULL', [req.session.user.id]);
-  res.json({ ...req.session.user, totp_enabled: !!u.totp_enabled, totp_required: requires2fa(u), backup_codes_left: c.n });
+  const [c] = await q('SELECT COUNT(*) AS n FROM backup_codes WHERE user_id=? AND used_at IS NULL', [u.id]);
+  res.json({ ...req.session.user, team_name: u.team_name, totp_enabled: !!u.totp_enabled, totp_required: requires2fa(u), backup_codes_left: c.n });
 }));
 
 app.post('/api/me/password', auth, wrap(async (req, res) => {
@@ -218,6 +258,7 @@ app.post('/api/me/password', auth, wrap(async (req, res) => {
   if (!(await checkPassword(req.session.user.id, current))) return res.status(400).json({ error: 'Current password is wrong' });
   await q('UPDATE users SET password_hash=? WHERE id=?', [await bcrypt.hash(password, 12), req.session.user.id]);
   await q('DELETE FROM trusted_devices WHERE user_id=?', [req.session.user.id]);
+  log(req, 'password_change');
   res.json({ ok: true });
 }));
 
@@ -243,12 +284,14 @@ app.post('/api/2fa/enable', auth, wrap(async (req, res) => {
   await q('UPDATE users SET totp_enabled=1, totp_last_step=? WHERE id=?', [step, u.id]);
   const codes = await newBackupCodes(u.id);
   req.session.user = { ...req.session.user, must_setup_2fa: false };
+  log(req, '2fa_on');
   res.json({ codes });
 }));
 app.post('/api/2fa/backup-codes', auth, wrap(async (req, res) => {
   if (!(await checkPassword(req.session.user.id, req.body.password))) return res.status(400).json({ error: 'Password is wrong' });
   const [u] = await q('SELECT totp_enabled FROM users WHERE id=?', [req.session.user.id]);
   if (!u.totp_enabled) return res.status(400).json({ error: 'Two-step login is off' });
+  log(req, 'backup_codes');
   res.json({ codes: await newBackupCodes(req.session.user.id) });
 }));
 app.post('/api/2fa/disable', auth, wrap(async (req, res) => {
@@ -256,67 +299,75 @@ app.post('/api/2fa/disable', auth, wrap(async (req, res) => {
   if (requires2fa(u)) return res.status(400).json({ error: 'Two-step login is required for your account and cannot be turned off' });
   if (!(await checkPassword(u.id, req.body.password))) return res.status(400).json({ error: 'Password is wrong' });
   await clear2fa(u.id);
+  log(req, '2fa_off');
   res.json({ ok: true });
 }));
 
-// ---------- Users ----------
+// ---------- Members (your team only) ----------
 app.get('/api/members', auth, wrap(async (req, res) => {
-  res.json(await q('SELECT id, name FROM users ORDER BY name'));
+  res.json(await q('SELECT id, name FROM users WHERE team_id=? ORDER BY name', [T(req)]));
 }));
 app.get('/api/users', auth, admin, wrap(async (req, res) => {
-  res.json((await q('SELECT id, email, name, is_admin, totp_enabled, created_at FROM users ORDER BY name'))
-    .map((u) => ({ ...u, is_admin: !!u.is_admin, totp_enabled: !!u.totp_enabled, totp_required: requires2fa(u) })));
+  res.json((await q('SELECT id, email, name, is_admin, is_owner, totp_enabled, created_at FROM users WHERE team_id=? ORDER BY name', [T(req)]))
+    .map((u) => ({ ...u, is_admin: !!u.is_admin, is_owner: !!u.is_owner, totp_enabled: !!u.totp_enabled, totp_required: requires2fa(u) })));
 }));
 app.post('/api/users', auth, admin, wrap(async (req, res) => {
   const { email, name, password, is_admin } = req.body;
   if (!email || !name || !password || password.length < 8)
     return res.status(400).json({ error: 'Email, name and a password of 8+ characters are required' });
-  await q('INSERT INTO users (email, name, password_hash, is_admin) VALUES (?,?,?,?)',
-    [String(email).toLowerCase(), cleanName(name), await bcrypt.hash(password, 12), is_admin ? 1 : 0])
-    .catch((e) => { throw e.code === 'ER_DUP_ENTRY' ? httpErr(400, 'That email is already a member') : e; });
+  const r = await q('INSERT INTO users (team_id, email, name, password_hash, is_admin) VALUES (?,?,?,?,?)',
+    [T(req), String(email).toLowerCase(), cleanName(name), await bcrypt.hash(password, 12), is_admin ? 1 : 0])
+    .catch((e) => { throw e.code === 'ER_DUP_ENTRY' ? httpErr(400, 'That email is already registered') : e; });
+  log(req, 'user_add', { type: 'user', id: r.insertId, name: cleanName(name) }, is_admin ? 'Admin' : 'Member');
   res.json({ ok: true });
 }));
 app.post('/api/users/:id/password', auth, admin, wrap(async (req, res) => {
+  const u = await teamMember(req, req.params.id);
   const { password } = req.body;
   if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be 8+ characters' });
-  await q('UPDATE users SET password_hash=? WHERE id=?', [await bcrypt.hash(password, 12), req.params.id]);
-  await q('DELETE FROM trusted_devices WHERE user_id=?', [req.params.id]);
+  await q('UPDATE users SET password_hash=? WHERE id=?', [await bcrypt.hash(password, 12), u.id]);
+  await q('DELETE FROM trusted_devices WHERE user_id=?', [u.id]);
+  log(req, 'password_reset', { type: 'user', id: u.id, name: u.name });
   res.json({ ok: true });
 }));
 // For a member who lost their phone and backup codes. They set it up again at next sign-in if required.
 app.delete('/api/users/:id/2fa', auth, admin, wrap(async (req, res) => {
-  if (Number(req.params.id) === req.session.user.id) return res.status(400).json({ error: 'Use your own Two-step login settings instead' });
-  await clear2fa(req.params.id);
+  const u = await teamMember(req, req.params.id);
+  if (u.id === req.session.user.id) return res.status(400).json({ error: 'Use your own Two-step login settings instead' });
+  await clear2fa(u.id);
+  log(req, '2fa_reset', { type: 'user', id: u.id, name: u.name });
   res.json({ ok: true });
 }));
 app.delete('/api/users/:id', auth, admin, wrap(async (req, res) => {
-  if (Number(req.params.id) === req.session.user.id) return res.status(400).json({ error: "You can't delete yourself" });
-  await q('DELETE FROM users WHERE id = ?', [req.params.id]).catch(() => {
+  const u = await teamMember(req, req.params.id);
+  if (u.id === req.session.user.id) return res.status(400).json({ error: "You can't delete yourself" });
+  await q('DELETE FROM users WHERE id = ?', [u.id]).catch(() => {
     throw httpErr(400, 'This member has uploaded files or created folders/links, so they cannot be removed. Reset their password instead to block access.');
   });
+  log(req, 'user_remove', { type: 'user', id: u.id, name: u.name });
   res.json({ ok: true });
 }));
 
 // ---------- Browse ----------
 app.get('/api/stats', auth, wrap(async (req, res) => {
-  const [a] = await q("SELECT COUNT(*) AS files, COALESCE(SUM(size),0) AS bytes FROM files WHERE status='ready'");
-  const [b] = await q('SELECT COALESCE(SUM(size),0) AS bytes FROM file_versions');
-  res.json({ files: a.files, bytes: Number(a.bytes) + Number(b.bytes) });
+  const u = await teamUsage(T(req));
+  const [t] = await q('SELECT quota_bytes FROM teams WHERE id=?', [T(req)]);
+  res.json({ files: u.files, bytes: u.used, quota: t.quota_bytes === null ? null : Number(t.quota_bytes) });
 }));
 
 app.get('/api/folders/:id', auth, wrap(async (req, res) => {
   const id = idOrNull(req.params.id);
-  const acl = (await requireFolder(req, id)) || (await loadAcl(req.session.user));
+  const acl = await requireFolder(req, id);
   const where = id === null ? 'IS NULL' : '= ?';
-  const p = id === null ? [] : [id];
+  const p = id === null ? [T(req)] : [T(req), id];
   const folders = (await q(`SELECT f.id, f.name, f.restricted, f.created_at, u.name AS owner FROM folders f JOIN users u ON u.id=f.created_by
-    WHERE f.parent_id ${where} AND f.deleted_at IS NULL`, p))
+    WHERE f.team_id=? AND f.parent_id ${where} AND f.deleted_at IS NULL`, p))
     .filter((f) => acl.can(f.id))
     .map((f) => ({ ...f, restricted: !!f.restricted, can_manage: acl.canManage(f.id) }));
   const files = await q(`SELECT f.id, f.name, f.size, f.mime, f.created_at, COALESCE(f.updated_at, f.created_at) AS updated_at, u.name AS owner,
     (SELECT COUNT(*) FROM file_versions v WHERE v.file_id=f.id) AS versions
     FROM files f JOIN users u ON u.id=f.uploaded_by
-    WHERE f.folder_id ${where} AND f.status='ready' AND f.deleted_at IS NULL`, p);
+    WHERE f.team_id=? AND f.folder_id ${where} AND f.status='ready' AND f.deleted_at IS NULL`, p);
   const crumbs = [];
   for (let c = id; c !== null; ) { const f = acl.byId.get(c); crumbs.unshift({ id: f.id, name: f.name, restricted: !!f.restricted }); c = f.parent_id; }
   res.json({ folders, files, crumbs });
@@ -331,13 +382,13 @@ app.get('/api/search', auth, wrap(async (req, res) => {
   const acl = await loadAcl(req.session.user);
   const term = `%${String(req.query.q || '').replace(/[%_\\]/g, '\\$&')}%`;
   res.json({
-    folders: (await q('SELECT id, name, parent_id, restricted, created_at FROM folders WHERE deleted_at IS NULL AND name LIKE ? LIMIT 200', [term]))
+    folders: (await q('SELECT id, name, parent_id, restricted, created_at FROM folders WHERE team_id=? AND deleted_at IS NULL AND name LIKE ? LIMIT 200', [T(req), term]))
       .filter((f) => acl.visible(f.id)).slice(0, 50)
       .map((f) => ({ ...f, restricted: !!f.restricted, can_manage: acl.canManage(f.id) })),
     files: (await q(`SELECT f.id, f.name, f.size, f.mime, f.folder_id, f.created_at, COALESCE(f.updated_at, f.created_at) AS updated_at, u.name AS owner,
       (SELECT COUNT(*) FROM file_versions v WHERE v.file_id=f.id) AS versions
       FROM files f JOIN users u ON u.id=f.uploaded_by
-      WHERE f.deleted_at IS NULL AND f.status='ready' AND f.name LIKE ? LIMIT 500`, [term]))
+      WHERE f.team_id=? AND f.deleted_at IS NULL AND f.status='ready' AND f.name LIKE ? LIMIT 500`, [T(req), term]))
       .filter((f) => acl.visible(f.folder_id)).slice(0, 100),
   });
 }));
@@ -347,21 +398,27 @@ app.post('/api/folders', auth, wrap(async (req, res) => {
   const name = cleanName(req.body.name);
   const parent = idOrNull(req.body.parent_id);
   if (!name) return res.status(400).json({ error: 'Folder name required' });
-  await requireFolder(req, parent);
-  const r = await q('INSERT INTO folders (parent_id, name, created_by) VALUES (?,?,?)', [parent, name, req.session.user.id]);
+  const acl = await requireFolder(req, parent);
+  const r = await q('INSERT INTO folders (team_id, parent_id, name, created_by) VALUES (?,?,?,?)', [T(req), parent, name, req.session.user.id]);
+  log(req, 'folder_create', { type: 'folder', id: r.insertId, name }, `in ${acl.pathOf(parent)}`);
   res.json({ id: r.insertId });
 }));
 
 // Find-or-create a chain of folders (used by folder uploads). Body: { parent_id, path: ["a","b"] }
 app.post('/api/folders/ensure', auth, wrap(async (req, res) => {
   let parent = idOrNull(req.body.parent_id);
-  const acl = (await requireFolder(req, parent)) || (await loadAcl(req.session.user));
+  const acl = await requireFolder(req, parent);
   for (const raw of (Array.isArray(req.body.path) ? req.body.path : []).slice(0, 50)) {
     const name = cleanName(raw);
     if (!name) continue;
-    const existing = (await q(`SELECT id FROM folders WHERE parent_id ${parent === null ? 'IS NULL' : '= ?'} AND name=? AND deleted_at IS NULL`,
-      parent === null ? [name] : [parent, name])).find((f) => acl.can(f.id));
-    parent = existing ? existing.id : (await q('INSERT INTO folders (parent_id, name, created_by) VALUES (?,?,?)', [parent, name, req.session.user.id])).insertId;
+    const existing = (await q(`SELECT id FROM folders WHERE team_id=? AND parent_id ${parent === null ? 'IS NULL' : '= ?'} AND name=? AND deleted_at IS NULL`,
+      parent === null ? [T(req), name] : [T(req), parent, name])).find((f) => acl.can(f.id));
+    if (existing) parent = existing.id;
+    else {
+      const inPath = acl.pathOf(parent);
+      parent = (await q('INSERT INTO folders (team_id, parent_id, name, created_by) VALUES (?,?,?,?)', [T(req), parent, name, req.session.user.id])).insertId;
+      log(req, 'folder_create', { type: 'folder', id: parent, name }, `in ${inPath}`);
+    }
   }
   res.json({ id: parent });
 }));
@@ -369,10 +426,12 @@ app.post('/api/folders/ensure', auth, wrap(async (req, res) => {
 app.patch('/api/folders/:id', auth, wrap(async (req, res) => {
   const id = Number(req.params.id);
   const acl = await requireFolder(req, id);
+  const f = acl.byId.get(id);
   if (req.body.name !== undefined) {
     const name = cleanName(req.body.name);
     if (!name) return res.status(400).json({ error: 'Name required' });
     await q('UPDATE folders SET name=? WHERE id=?', [name, id]);
+    if (name !== f.name) log(req, 'rename', { type: 'folder', id, name }, `from "${f.name}"`);
   }
   if (req.body.parent_id !== undefined) {
     const target = idOrNull(req.body.parent_id);
@@ -380,12 +439,15 @@ app.patch('/api/folders/:id', auth, wrap(async (req, res) => {
     for (let cur = target; cur !== null; cur = acl.byId.get(cur).parent_id)
       if (cur === id) return res.status(400).json({ error: "Can't move a folder into itself" });
     await q('UPDATE folders SET parent_id=? WHERE id=?', [target, id]);
+    if (target !== f.parent_id) log(req, 'move', { type: 'folder', id, name: f.name }, `to ${acl.pathOf(target)}`);
   }
   res.json({ ok: true });
 }));
 app.delete('/api/folders/:id', auth, wrap(async (req, res) => {
-  await requireFolder(req, Number(req.params.id));
-  await q('UPDATE folders SET deleted_at=NOW() WHERE id=?', [req.params.id]);
+  const id = Number(req.params.id);
+  const acl = await requireFolder(req, id);
+  await q('UPDATE folders SET deleted_at=NOW() WHERE id=?', [id]);
+  log(req, 'delete', { type: 'folder', id, name: acl.byId.get(id).name });
   res.json({ ok: true });
 }));
 
@@ -409,9 +471,15 @@ app.put('/api/folders/:id/access', auth, wrap(async (req, res) => {
     await conn.query('UPDATE folders SET restricted=? WHERE id=?', [req.body.restricted ? 1 : 0, id]);
     await conn.query('DELETE FROM folder_access WHERE folder_id=?', [id]);
     if (req.body.restricted && ids.length)
-      await conn.query('INSERT INTO folder_access (folder_id, user_id) SELECT ?, id FROM users WHERE id IN (?)', [id, ids]);
+      await conn.query('INSERT INTO folder_access (folder_id, user_id) SELECT ?, id FROM users WHERE id IN (?) AND team_id=?', [id, ids, T(req)]);
     await conn.commit();
   } catch (e) { await conn.rollback(); throw e; } finally { conn.release(); }
+  let detail = 'Open to the whole team';
+  if (req.body.restricted) {
+    const names = ids.length ? (await q('SELECT name FROM users WHERE id IN (?) AND team_id=?', [ids, T(req)])).map((u) => u.name) : [];
+    detail = `Restricted to ${names.length ? names.join(', ') : 'admins and creator'}`;
+  }
+  log(req, 'access_change', { type: 'folder', id, name: acl.byId.get(id).name }, detail);
   res.json({ ok: true });
 }));
 
@@ -428,10 +496,11 @@ app.get('/api/folders/:id/zip', auth, wrap(async (req, res) => {
   for (let i = 0; i < dirs.length; i++)
     for (const c of children.get(dirs[i].id) || []) dirs.push({ id: c.id, prefix: `${dirs[i].prefix}${c.name}/` });
   const prefixOf = new Map(dirs.map((d) => [d.id, d.prefix]));
-  const files = await q("SELECT name, r2_key, size, folder_id FROM files WHERE status='ready' AND deleted_at IS NULL AND folder_id IN (?)", [[...prefixOf.keys()]]);
+  const files = await q("SELECT name, r2_key, size, folder_id FROM files WHERE team_id=? AND status='ready' AND deleted_at IS NULL AND folder_id IN (?)", [T(req), [...prefixOf.keys()]]);
   const total = files.reduce((s, f) => s + Number(f.size), 0);
   if (total > MAX_ZIP_BYTES) return res.status(400).json({ error: `Folder is larger than the ${process.env.MAX_ZIP_MB || 5120} MB zip limit. Download subfolders instead.` });
 
+  log(req, 'zip_download', { type: 'folder', id, name: acl.byId.get(id).name }, `${files.length} files`);
   const zipName = `${acl.byId.get(id).name}.zip`;
   res.setHeader('Content-Type', 'application/zip');
   res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(zipName)}`);
@@ -461,26 +530,33 @@ app.post('/api/files/init', auth, wrap(async (req, res) => {
   if (!name) return res.status(400).json({ error: 'File name required' });
   if (size > MAX_BYTES) return res.status(400).json({ error: `File exceeds ${process.env.MAX_UPLOAD_MB || 2048} MB limit` });
   await requireFolder(req, folder);
-  const [existing] = await q("SELECT id FROM files WHERE folder_id <=> ? AND name=? AND status='ready' AND deleted_at IS NULL LIMIT 1", [folder, name]);
+  const [t] = await q('SELECT quota_bytes FROM teams WHERE id=?', [T(req)]);
+  if (t.quota_bytes !== null) {
+    const { used } = await teamUsage(T(req));
+    if (used + size > Number(t.quota_bytes))
+      return res.status(400).json({ error: `Your team's storage is full (${fmtBytes(used)} of ${fmtBytes(Number(t.quota_bytes))} used). Delete files or ask the owner for more space.` });
+  }
+  const [existing] = await q("SELECT id FROM files WHERE team_id=? AND folder_id <=> ? AND name=? AND status='ready' AND deleted_at IS NULL LIMIT 1", [T(req), folder, name]);
   const key = `files/${new Date().toISOString().slice(0, 7)}/${crypto.randomUUID()}`;
-  const r = await q('INSERT INTO files (folder_id, name, r2_key, size, mime, uploaded_by) VALUES (?,?,?,?,?,?)',
-    [folder, name, key, size, mime, req.session.user.id]);
+  const r = await q('INSERT INTO files (team_id, folder_id, name, r2_key, size, mime, uploaded_by) VALUES (?,?,?,?,?,?,?)',
+    [T(req), folder, name, key, size, mime, req.session.user.id]);
   res.json({ id: r.insertId, url: await r2.uploadUrl(key, mime), replaces: existing ? existing.id : null });
 }));
 
 // After the browser's PUT finishes. Same name in the same folder => becomes a new version.
 app.post('/api/files/:id/complete', auth, wrap(async (req, res) => {
-  const [f] = await q("SELECT * FROM files WHERE id=? AND uploaded_by=? AND status='pending'", [req.params.id, req.session.user.id]);
+  const [f] = await q("SELECT * FROM files WHERE id=? AND team_id=? AND uploaded_by=? AND status='pending'", [req.params.id, T(req), req.session.user.id]);
   if (!f) return res.status(404).json({ error: 'Not found' });
   const meta = await r2.head(f.r2_key).catch(() => null);
   if (!meta) return res.status(400).json({ error: 'Upload not found in storage' });
   const size = Number(meta.ContentLength ?? f.size);
   const conn = await pool.getConnection();
+  let old;
   try {
     await conn.beginTransaction();
-    const [[old]] = await conn.query(
-      "SELECT * FROM files WHERE folder_id <=> ? AND name=? AND status='ready' AND deleted_at IS NULL AND id<>? LIMIT 1 FOR UPDATE",
-      [f.folder_id, f.name, f.id]);
+    [[old]] = await conn.query(
+      "SELECT * FROM files WHERE team_id=? AND folder_id <=> ? AND name=? AND status='ready' AND deleted_at IS NULL AND id<>? LIMIT 1 FOR UPDATE",
+      [f.team_id, f.folder_id, f.name, f.id]);
     if (old) {
       await conn.query('INSERT INTO file_versions (file_id, r2_key, size, mime, uploaded_by, created_at) VALUES (?,?,?,?,?,?)',
         [old.id, old.r2_key, old.size, old.mime, old.uploaded_by, old.updated_at || old.created_at]);
@@ -491,12 +567,15 @@ app.post('/api/files/:id/complete', auth, wrap(async (req, res) => {
       await conn.query("UPDATE files SET status='ready', size=?, updated_at=NOW() WHERE id=?", [size, f.id]);
     }
     await conn.commit();
-    res.json({ ok: true, id: old ? old.id : f.id, versioned: !!old });
   } catch (e) { await conn.rollback(); throw e; } finally { conn.release(); }
+  const acl = await loadAcl(req.session.user);
+  log(req, old ? 'new_version' : 'upload', { type: 'file', id: old ? old.id : f.id, name: f.name }, `${fmtBytes(size)} in ${acl.pathOf(f.folder_id)}`);
+  res.json({ ok: true, id: old ? old.id : f.id, versioned: !!old });
 }));
 
 app.get('/api/files/:id/download', auth, wrap(async (req, res) => {
   const f = await getFile(req, req.params.id);
+  log(req, 'download', { type: 'file', id: f.id, name: f.name });
   res.redirect(await r2.downloadUrl(f.r2_key, f.name));
 }));
 
@@ -514,24 +593,29 @@ app.get('/api/files/:id/preview', auth, wrap(async (req, res) => {
 }));
 
 app.patch('/api/files/:id', auth, wrap(async (req, res) => {
-  await getFile(req, req.params.id);
+  const f = await getFile(req, req.params.id);
   const sets = [], p = [];
+  let newName = null, target;
   if (req.body.name !== undefined) {
-    const n = cleanName(req.body.name);
-    if (!n) return res.status(400).json({ error: 'Name required' });
-    sets.push('name=?'); p.push(n);
+    newName = cleanName(req.body.name);
+    if (!newName) return res.status(400).json({ error: 'Name required' });
+    sets.push('name=?'); p.push(newName);
   }
+  let acl;
   if (req.body.folder_id !== undefined) {
-    const target = idOrNull(req.body.folder_id);
-    await requireFolder(req, target).catch(() => { throw httpErr(400, 'Target folder not found'); });
+    target = idOrNull(req.body.folder_id);
+    acl = await requireFolder(req, target).catch(() => { throw httpErr(400, 'Target folder not found'); });
     sets.push('folder_id=?'); p.push(target);
   }
-  if (sets.length) await q(`UPDATE files SET ${sets.join(',')} WHERE id=?`, [...p, req.params.id]);
+  if (sets.length) await q(`UPDATE files SET ${sets.join(',')} WHERE id=?`, [...p, f.id]);
+  if (newName && newName !== f.name) log(req, 'rename', { type: 'file', id: f.id, name: newName }, `from "${f.name}"`);
+  if (acl && target !== f.folder_id) log(req, 'move', { type: 'file', id: f.id, name: newName || f.name }, `to ${acl.pathOf(target)}`);
   res.json({ ok: true });
 }));
 app.delete('/api/files/:id', auth, wrap(async (req, res) => {
-  await getFile(req, req.params.id);
-  await q('UPDATE files SET deleted_at=NOW() WHERE id=?', [req.params.id]);
+  const f = await getFile(req, req.params.id);
+  await q('UPDATE files SET deleted_at=NOW() WHERE id=?', [f.id]);
+  log(req, 'delete', { type: 'file', id: f.id, name: f.name });
   res.json({ ok: true });
 }));
 
@@ -548,14 +632,16 @@ app.get('/api/files/:id/versions/:vid/download', auth, wrap(async (req, res) => 
   const [v] = await q('SELECT * FROM file_versions WHERE id=? AND file_id=?', [req.params.vid, f.id]);
   if (!v) return res.status(404).json({ error: 'Version not found' });
   const stamp = new Date(v.created_at).toISOString().slice(0, 16).replace(/[T:]/g, '-');
+  log(req, 'download', { type: 'file', id: f.id, name: f.name }, `Older version from ${stamp}`);
   res.redirect(await r2.downloadUrl(v.r2_key, f.name.replace(/(\.[^.]*)?$/, ` (${stamp})$1`)));
 }));
 app.post('/api/files/:id/versions/:vid/restore', auth, wrap(async (req, res) => {
   const f = await getFile(req, req.params.id);
   const conn = await pool.getConnection();
+  let v;
   try {
     await conn.beginTransaction();
-    const [[v]] = await conn.query('SELECT * FROM file_versions WHERE id=? AND file_id=? FOR UPDATE', [req.params.vid, f.id]);
+    [[v]] = await conn.query('SELECT * FROM file_versions WHERE id=? AND file_id=? FOR UPDATE', [req.params.vid, f.id]);
     if (!v) throw httpErr(404, 'Version not found');
     await conn.query('DELETE FROM file_versions WHERE id=?', [v.id]);
     await conn.query('INSERT INTO file_versions (file_id, r2_key, size, mime, uploaded_by, created_at) VALUES (?,?,?,?,?,?)',
@@ -564,6 +650,7 @@ app.post('/api/files/:id/versions/:vid/restore', auth, wrap(async (req, res) => 
       [v.r2_key, v.size, v.mime, req.session.user.id, f.id]);
     await conn.commit();
   } catch (e) { await conn.rollback(); throw e; } finally { conn.release(); }
+  log(req, 'version_restore', { type: 'file', id: f.id, name: f.name }, `Restored the version from ${new Date(v.created_at).toISOString().slice(0, 16).replace('T', ' ')} UTC`);
   res.json({ ok: true });
 }));
 
@@ -571,25 +658,28 @@ app.post('/api/files/:id/versions/:vid/restore', auth, wrap(async (req, res) => 
 app.get('/api/trash', auth, wrap(async (req, res) => {
   const acl = await loadAcl(req.session.user);
   res.json({
-    folders: (await q('SELECT id, name, deleted_at FROM folders WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC')).filter((f) => acl.can(f.id)),
-    files: (await q('SELECT id, name, size, folder_id, deleted_at FROM files WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC')).filter((f) => acl.can(f.folder_id)),
+    folders: (await q('SELECT id, name, deleted_at FROM folders WHERE team_id=? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC', [T(req)])).filter((f) => acl.can(f.id)),
+    files: (await q('SELECT id, name, size, folder_id, deleted_at FROM files WHERE team_id=? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC', [T(req)])).filter((f) => acl.can(f.folder_id)),
   });
 }));
 // If the item's parent folder is still in Trash, restore it to the top level so it doesn't vanish.
 app.post('/api/trash/:type/:id/restore', auth, wrap(async (req, res) => {
   const acl = await loadAcl(req.session.user);
-  let movedToRoot = false;
+  let movedToRoot = false, name;
   if (req.params.type === 'folder') {
     const f = acl.byId.get(Number(req.params.id));
     if (!f || !acl.can(f.id)) throw httpErr(404, 'Not found');
     movedToRoot = f.parent_id !== null && !acl.alive(f.parent_id);
     await q('UPDATE folders SET deleted_at=NULL, parent_id=? WHERE id=?', [movedToRoot ? null : f.parent_id, f.id]);
+    name = f.name;
   } else {
-    const [f] = await q('SELECT id, folder_id FROM files WHERE id=?', [req.params.id]);
+    const [f] = await q('SELECT id, name, folder_id FROM files WHERE id=? AND team_id=?', [req.params.id, T(req)]);
     if (!f || !acl.can(f.folder_id)) throw httpErr(404, 'Not found');
     movedToRoot = f.folder_id !== null && !acl.alive(f.folder_id);
     await q('UPDATE files SET deleted_at=NULL, folder_id=? WHERE id=?', [movedToRoot ? null : f.folder_id, f.id]);
+    name = f.name;
   }
+  log(req, 'restore', { type: req.params.type === 'folder' ? 'folder' : 'file', id: Number(req.params.id), name }, movedToRoot ? 'Put at top level (its folder is in Trash)' : '');
   res.json({ ok: true, movedToRoot });
 }));
 
@@ -606,14 +696,22 @@ async function queuePurge(fileIds) {
 }
 app.delete('/api/trash/:type/:id', auth, admin, wrap(async (req, res) => {
   if (req.params.type === 'file') {
-    const [f] = await q('SELECT id FROM files WHERE id=? AND deleted_at IS NOT NULL', [req.params.id]);
-    if (f) { await queuePurge([f.id]); await q('DELETE FROM files WHERE id=?', [f.id]); }
+    const [f] = await q('SELECT id, name FROM files WHERE id=? AND team_id=? AND deleted_at IS NOT NULL', [req.params.id, T(req)]);
+    if (f) {
+      await queuePurge([f.id]); await q('DELETE FROM files WHERE id=?', [f.id]);
+      log(req, 'purge', { type: 'file', id: f.id, name: f.name });
+    }
   } else {
-    const ids = [Number(req.params.id)];
-    for (let i = 0; i < ids.length; i++)
-      (await q('SELECT id FROM folders WHERE parent_id=?', [ids[i]])).forEach((r) => ids.push(r.id));
-    await queuePurge((await q('SELECT id FROM files WHERE folder_id IN (?)', [ids])).map((r) => r.id));
-    await q('DELETE FROM folders WHERE id=?', [req.params.id]);
+    const [root] = await q('SELECT id, name FROM folders WHERE id=? AND team_id=? AND deleted_at IS NOT NULL', [req.params.id, T(req)]);
+    if (root) {
+      const ids = [root.id];
+      for (let i = 0; i < ids.length; i++)
+        (await q('SELECT id FROM folders WHERE parent_id=? AND team_id=?', [ids[i], T(req)])).forEach((r) => ids.push(r.id));
+      const fileIds = (await q('SELECT id FROM files WHERE folder_id IN (?) AND team_id=?', [ids, T(req)])).map((r) => r.id);
+      await queuePurge(fileIds);
+      await q('DELETE FROM folders WHERE id=?', [root.id]);
+      log(req, 'purge', { type: 'folder', id: root.id, name: root.name }, `${fileIds.length} files`);
+    }
   }
   res.json({ ok: true });
 }));
@@ -623,6 +721,7 @@ async function runPurge() {
     const due = await q('SELECT id, r2_key FROM purge_queue WHERE purge_after < NOW() LIMIT 500');
     for (const d of due) { await r2.remove(d.r2_key); await q('DELETE FROM purge_queue WHERE id=?', [d.id]); }
     if (due.length) console.log(`Purged ${due.length} object(s) from storage`);
+    await q('DELETE FROM activity_log WHERE created_at < NOW() - INTERVAL ? DAY', [ACTIVITY_DAYS]);
   } catch (e) { console.error('Purge job failed:', e.message); }
 }
 
@@ -635,14 +734,16 @@ app.post('/api/files/:id/share', auth, wrap(async (req, res) => {
   const token = crypto.randomBytes(24).toString('hex');
   await q('INSERT INTO share_links (token, file_id, created_by, expires_at, password_hash) VALUES (?,?,?,?,?)',
     [token, f.id, req.session.user.id, days > 0 ? new Date(Date.now() + days * 864e5) : null, pw ? await bcrypt.hash(pw, 10) : null]);
+  log(req, 'share_create', { type: 'file', id: f.id, name: f.name }, `${days > 0 ? `Expires in ${days} day${days === 1 ? '' : 's'}` : 'Never expires'}${pw ? ', password-protected' : ''}`);
   res.json({ url: `${process.env.APP_URL}/s/${token}` });
 }));
 app.get('/api/shares', auth, wrap(async (req, res) => {
   const acl = await loadAcl(req.session.user);
+  const mine = !req.session.user.is_admin;
   const rows = await q(`SELECT s.id, s.token, s.expires_at, s.created_at, s.downloads, s.created_by, (s.password_hash IS NOT NULL) AS has_password,
       f.id AS file_id, f.name AS file_name, f.folder_id, f.deleted_at, u.name AS creator
     FROM share_links s JOIN files f ON f.id=s.file_id JOIN users u ON u.id=s.created_by
-    ${req.session.user.is_admin ? '' : 'WHERE s.created_by=?'} ORDER BY s.created_at DESC`, req.session.user.is_admin ? [] : [req.session.user.id]);
+    WHERE f.team_id=? ${mine ? 'AND s.created_by=?' : ''} ORDER BY s.created_at DESC`, mine ? [T(req), req.session.user.id] : [T(req)]);
   res.json(rows.filter((r) => acl.can(r.folder_id)).map((r) => ({
     id: r.id, url: `${process.env.APP_URL}/s/${r.token}`, file_id: r.file_id, file_name: r.file_name, creator: r.creator,
     created_at: r.created_at, expires_at: r.expires_at, downloads: r.downloads, has_password: !!r.has_password,
@@ -650,9 +751,10 @@ app.get('/api/shares', auth, wrap(async (req, res) => {
   })));
 }));
 app.delete('/api/shares/:id', auth, wrap(async (req, res) => {
-  const [s] = await q('SELECT created_by FROM share_links WHERE id=?', [req.params.id]);
+  const [s] = await q('SELECT s.id, s.created_by, f.id AS file_id, f.name FROM share_links s JOIN files f ON f.id=s.file_id WHERE s.id=? AND f.team_id=?', [req.params.id, T(req)]);
   if (!s || (!req.session.user.is_admin && s.created_by !== req.session.user.id)) throw httpErr(404, 'Link not found');
-  await q('DELETE FROM share_links WHERE id=?', [req.params.id]);
+  await q('DELETE FROM share_links WHERE id=?', [s.id]);
+  log(req, 'share_revoke', { type: 'file', id: s.file_id, name: s.name });
   res.json({ ok: true });
 }));
 
@@ -667,9 +769,15 @@ input,button{font:inherit;padding:9px 11px;border-radius:8px;border:1px solid va
 button{background:var(--acc);border-color:var(--acc);color:#fff;cursor:pointer}.m{color:var(--mute);font-size:14px}.e{color:var(--danger);font-size:14px}
 </style></head><body><div class="c">${body}</div></body></html>`;
 async function shareRow(token) {
-  const [row] = await q(`SELECT s.id, s.password_hash, f.r2_key, f.name FROM share_links s JOIN files f ON f.id=s.file_id
-    WHERE s.token=? AND (s.expires_at IS NULL OR s.expires_at > NOW()) AND f.deleted_at IS NULL AND f.status='ready'`, [token]);
+  const [row] = await q(`SELECT s.id, s.password_hash, f.id AS file_id, f.team_id, f.r2_key, f.name FROM share_links s
+    JOIN files f ON f.id=s.file_id JOIN teams t ON t.id=f.team_id
+    WHERE s.token=? AND (s.expires_at IS NULL OR s.expires_at > NOW()) AND f.deleted_at IS NULL AND f.status='ready' AND t.disabled=0`, [token]);
   return row;
+}
+async function serveShare(req, res, row, status = 302) {
+  await q('UPDATE share_links SET downloads=downloads+1 WHERE id=?', [row.id]);
+  log(req, 'share_open', { type: 'file', id: row.file_id, name: row.name }, 'Downloaded through a share link', { teamId: row.team_id, userId: null });
+  res.redirect(status, await r2.downloadUrl(row.r2_key, row.name));
 }
 const pwForm = (name, err = '') => page('Protected file', `<b>${esc(name)}</b><span class="m">This file is password-protected.</span>
   <form method="post" style="display:grid;gap:10px"><input type="password" name="password" placeholder="Password" required autofocus><button>Download</button></form>
@@ -679,8 +787,7 @@ app.get('/s/:token', wrap(async (req, res) => {
   const row = await shareRow(req.params.token);
   if (!row) return res.status(404).send(gone());
   if (row.password_hash) return res.send(pwForm(row.name));
-  await q('UPDATE share_links SET downloads=downloads+1 WHERE id=?', [row.id]);
-  res.redirect(await r2.downloadUrl(row.r2_key, row.name));
+  await serveShare(req, res, row);
 }));
 app.post('/s/:token', wrap(async (req, res) => {
   const row = await shareRow(req.params.token);
@@ -692,8 +799,92 @@ app.post('/s/:token', wrap(async (req, res) => {
     addFail(key);
     return res.status(401).send(pwForm(row.name, 'Wrong password'));
   }
-  await q('UPDATE share_links SET downloads=downloads+1 WHERE id=?', [row.id]);
-  res.redirect(303, await r2.downloadUrl(row.r2_key, row.name));
+  await serveShare(req, res, row, 303);
+}));
+
+// ---------- Activity (admins, own team) ----------
+function activityQuery(req) {
+  const where = ['a.team_id=?'], p = [T(req)];
+  if (req.query.user) { where.push('a.user_id=?'); p.push(Number(req.query.user)); }
+  if (req.query.action) { where.push('a.action IN (?)'); p.push(String(req.query.action).split(',').slice(0, 20)); }
+  if (req.query.q) { where.push('(a.target_name LIKE ? OR a.detail LIKE ?)'); const t = `%${String(req.query.q).replace(/[%_\\]/g, '\\$&')}%`; p.push(t, t); }
+  if (req.query.from) { where.push('a.created_at >= ?'); p.push(new Date(req.query.from)); }
+  if (req.query.to) { where.push('a.created_at < ?'); p.push(new Date(new Date(req.query.to).getTime() + 864e5)); }
+  return { sql: `SELECT a.id, a.created_at, a.action, a.target_type, a.target_id, a.target_name, a.detail, a.ip, a.user_id, u.name AS user_name
+    FROM activity_log a LEFT JOIN users u ON u.id=a.user_id WHERE ${where.join(' AND ')}`, p };
+}
+app.get('/api/activity', auth, admin, wrap(async (req, res) => {
+  const { sql, p } = activityQuery(req);
+  const limit = Math.min(Number(req.query.limit) || 100, 500);
+  const before = Number(req.query.before) || 0;
+  const rows = await q(`${sql}${before ? ' AND a.id < ?' : ''} ORDER BY a.id DESC LIMIT ?`, [...p, ...(before ? [before] : []), limit + 1]);
+  res.json({ items: rows.slice(0, limit), more: rows.length > limit });
+}));
+app.get('/api/activity.csv', auth, admin, wrap(async (req, res) => {
+  const { sql, p } = activityQuery(req);
+  const rows = await q(`${sql} ORDER BY a.id DESC LIMIT 20000`, p);
+  const cell = (v) => { const s = v === null || v === undefined ? '' : String(v); return /[",\n\r]|^[=+\-@]/.test(s) ? `"${s.replace(/"/g, '""').replace(/^([=+\-@])/, "'$1")}"` : s; };
+  const lines = [['Time (UTC)', 'Who', 'Action', 'Type', 'Item', 'Details', 'IP'].join(',')];
+  for (const r of rows)
+    lines.push([new Date(r.created_at).toISOString().replace('T', ' ').slice(0, 19), r.user_name || (r.user_id ? 'Removed member' : 'Someone with a link'),
+      r.action, r.target_type, r.target_name, r.detail, r.ip].map(cell).join(','));
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="teamdrive-activity-${new Date().toISOString().slice(0, 10)}.csv"`);
+  res.send('﻿' + lines.join('\r\n'));
+}));
+
+// ---------- Teams (platform owner) ----------
+app.get('/api/owner/teams', auth, owner, wrap(async (req, res) => {
+  const teams = await q(`SELECT t.id, t.name, t.quota_bytes, t.disabled, t.created_at,
+    (SELECT COUNT(*) FROM users u WHERE u.team_id=t.id) AS members,
+    (SELECT GROUP_CONCAT(u.email ORDER BY u.id SEPARATOR ', ') FROM users u WHERE u.team_id=t.id AND u.is_admin=1) AS admins
+    FROM teams t ORDER BY t.name`);
+  for (const t of teams) Object.assign(t, await teamUsage(t.id), { quota_bytes: t.quota_bytes === null ? null : Number(t.quota_bytes), disabled: !!t.disabled, mine: t.id === T(req) });
+  res.json(teams);
+}));
+const quotaBytes = (gb) => (gb === '' || gb === null || gb === undefined || Number(gb) <= 0 ? null : Math.round(Number(gb) * GB));
+app.post('/api/owner/teams', auth, owner, wrap(async (req, res) => {
+  const name = cleanName(req.body.name);
+  const { admin_name, admin_email, admin_password } = req.body;
+  if (!name) return res.status(400).json({ error: 'Team name required' });
+  if (!admin_name || !admin_email || !admin_password || String(admin_password).length < 8)
+    return res.status(400).json({ error: "First admin's name, email and a temporary password of 8+ characters are required" });
+  const conn = await pool.getConnection();
+  let teamId;
+  try {
+    await conn.beginTransaction();
+    teamId = (await conn.query('INSERT INTO teams (name, quota_bytes) VALUES (?,?)', [name, quotaBytes(req.body.quota_gb)]))[0].insertId;
+    await conn.query('INSERT INTO users (team_id, email, name, password_hash, is_admin) VALUES (?,?,?,?,1)',
+      [teamId, String(admin_email).toLowerCase(), cleanName(admin_name), await bcrypt.hash(String(admin_password), 12)]);
+    await conn.commit();
+  } catch (e) {
+    await conn.rollback();
+    throw e.code === 'ER_DUP_ENTRY' ? httpErr(400, 'That admin email is already registered') : e;
+  } finally { conn.release(); }
+  log(req, 'team_create', { type: 'team', id: teamId, name }, `First admin ${String(admin_email).toLowerCase()}`);
+  log(req, 'team_create', { type: 'team', id: teamId, name }, 'Team created by the TeamDrive owner', { teamId, userId: null });
+  res.json({ id: teamId });
+}));
+app.patch('/api/owner/teams/:id', auth, owner, wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  const [t] = await q('SELECT * FROM teams WHERE id=?', [id]);
+  if (!t) throw httpErr(404, 'Team not found');
+  const changes = [];
+  if (req.body.name !== undefined) {
+    const n = cleanName(req.body.name);
+    if (!n) return res.status(400).json({ error: 'Team name required' });
+    await q('UPDATE teams SET name=? WHERE id=?', [n, id]); if (n !== t.name) changes.push(`renamed to "${n}"`);
+  }
+  if (req.body.quota_gb !== undefined) {
+    const qb = quotaBytes(req.body.quota_gb);
+    await q('UPDATE teams SET quota_bytes=? WHERE id=?', [qb, id]); changes.push(`storage limit ${qb === null ? 'removed' : `set to ${fmtBytes(qb)}`}`);
+  }
+  if (req.body.disabled !== undefined) {
+    if (id === T(req) && req.body.disabled) return res.status(400).json({ error: "You can't disable your own team" });
+    await q('UPDATE teams SET disabled=? WHERE id=?', [req.body.disabled ? 1 : 0, id]); changes.push(req.body.disabled ? 'disabled' : 'enabled');
+  }
+  if (changes.length) log(req, 'team_update', { type: 'team', id, name: t.name }, changes.join(', '));
+  res.json({ ok: true });
 }));
 
 // ---------- Frontend ----------
@@ -710,6 +901,10 @@ app.use((err, req, res, next) => {
 async function addColumn(table, column, def) {
   const [c] = await q('SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?', [table, column]);
   if (!c) await q(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
+}
+async function addIndex(table, name, cols) {
+  const [i] = await q('SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND INDEX_NAME=?', [table, name]);
+  if (!i) await q(`ALTER TABLE ${table} ADD INDEX ${name} (${cols})`);
 }
 async function migrate() {
   await q(`CREATE TABLE IF NOT EXISTS purge_queue (
@@ -740,6 +935,39 @@ async function migrate() {
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX (token_hash),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`);
   await q('DELETE FROM trusted_devices WHERE expires_at < NOW()');
+
+  // Teams: everything that existed before becomes the first team.
+  await q(`CREATE TABLE IF NOT EXISTS teams (
+    id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255) NOT NULL, quota_bytes BIGINT NULL,
+    disabled TINYINT(1) NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
+  await addColumn('users', 'team_id', 'INT NULL');
+  await addColumn('users', 'is_owner', 'TINYINT(1) NOT NULL DEFAULT 0');
+  await addColumn('folders', 'team_id', 'INT NULL');
+  await addColumn('files', 'team_id', 'INT NULL');
+  await addIndex('users', 'idx_users_team', 'team_id');
+  await addIndex('folders', 'idx_folders_team', 'team_id, parent_id');
+  await addIndex('files', 'idx_files_team', 'team_id, folder_id');
+  const [orphans] = await q('SELECT (SELECT COUNT(*) FROM users WHERE team_id IS NULL) + (SELECT COUNT(*) FROM folders WHERE team_id IS NULL) + (SELECT COUNT(*) FROM files WHERE team_id IS NULL) AS n');
+  if (Number(orphans.n) > 0) {
+    let [first] = await q('SELECT id FROM teams ORDER BY id LIMIT 1');
+    if (!first) first = { id: (await q('INSERT INTO teams (name) VALUES (?)', [process.env.TEAM_NAME || 'My team'])).insertId };
+    await q('UPDATE users SET team_id=? WHERE team_id IS NULL', [first.id]);
+    await q('UPDATE folders SET team_id=? WHERE team_id IS NULL', [first.id]);
+    await q('UPDATE files SET team_id=? WHERE team_id IS NULL', [first.id]);
+    console.log(`Moved existing data into team #${first.id}`);
+  }
+  const [hasOwner] = await q('SELECT id FROM users WHERE is_owner=1 LIMIT 1');
+  if (!hasOwner) {
+    const [o] = process.env.OWNER_EMAIL
+      ? await q('SELECT id, email FROM users WHERE email=?', [process.env.OWNER_EMAIL.toLowerCase()])
+      : await q('SELECT id, email FROM users WHERE is_admin=1 ORDER BY id LIMIT 1');
+    if (o) { await q('UPDATE users SET is_owner=1, is_admin=1 WHERE id=?', [o.id]); console.log(`TeamDrive owner: ${o.email}`); }
+  }
+  await q(`CREATE TABLE IF NOT EXISTS activity_log (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY, team_id INT NOT NULL, user_id INT NULL, action VARCHAR(40) NOT NULL,
+    target_type VARCHAR(20) NULL, target_id INT NULL, target_name VARCHAR(255) NULL, detail VARCHAR(500) NULL,
+    ip VARCHAR(64) NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_activity_team (team_id, id), INDEX idx_activity_user (team_id, user_id, id))`);
 }
 
 migrate()

@@ -14,8 +14,13 @@ button.on{border-color:var(--acc);color:var(--acc)}
 input,select{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 10px;border-radius:8px;width:100%}
 input[type=checkbox]{width:auto}
 header{display:flex;gap:8px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--card);flex-wrap:wrap}
-header b{font-size:17px;margin-right:6px}header .sp{flex:1}#search{max-width:260px}
-#usage{font-size:13px;color:var(--mute)}
+header b{font-size:17px;margin-right:6px}header .sp{flex:1}header button{padding:6px 10px}#search{max-width:200px}
+@media (max-width:1180px) and (min-width:701px){#usage{display:none}}
+#usage{font-size:13px;color:var(--mute)}#usage.warn{color:var(--danger);font-weight:600}
+.team{font-size:13px;color:var(--mute);border-left:1px solid var(--line);padding-left:10px;margin-right:4px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qbar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:4px;min-width:90px}.qbar i{display:block;height:100%;background:var(--acc)}.qbar i.hi{background:var(--danger)}
+tr.bad td{color:var(--danger)}.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.filters>*{width:auto;flex:0 1 auto}.filters input[type=search]{min-width:180px}
+.when{white-space:nowrap}
 main{max-width:1050px;margin:0 auto;padding:16px}
 .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
 .crumbs a{color:var(--acc);cursor:pointer}.crumbs span{color:var(--mute);margin:0 4px}
@@ -44,7 +49,8 @@ dialog.wide{width:min(960px,96vw)}dialog::backdrop{background:rgba(0,0,0,.45)}di
 code{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--bg);padding:2px 6px;border-radius:5px;word-break:break-all}
 pre.codes{font:14px/1.9 ui-monospace,SFMono-Regular,Menlo,monospace;columns:2;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:0}
 #code2fa{font-size:22px;letter-spacing:4px;text-align:center}
-@media (max-width:700px){.hide-s{display:none}#search{max-width:none;order:9;flex-basis:100%}}
+.mob{display:none}
+@media (max-width:700px){td,th{padding:8px}td{overflow-wrap:anywhere}.when{white-space:normal;font-size:12px;width:24%}.mob{display:block}.mob:empty{display:none}.hide-s{display:none}#search{max-width:none;order:9;flex-basis:100%}}
 </style>
 </head>
 <body>
@@ -213,8 +219,8 @@ async function twoStepDialog() {
 }
 
 function shell() {
-  $('#app').innerHTML = `<header><b>TeamDrive</b>
-    <button data-v="files">Files</button><button data-v="shares">Shared links</button><button data-v="trash">Trash</button>${me.is_admin ? '<button data-v="users">Users</button>' : ''}
+  $('#app').innerHTML = `<header><b>TeamDrive</b><span class="team hide-s" title="${esc(me.team_name)}">${esc(me.team_name)}</span>
+    <button data-v="files">Files</button><button data-v="shares">Shared links</button><button data-v="trash">Trash</button>${me.is_admin ? '<button data-v="users">Users</button><button data-v="activity">Activity</button>' : ''}${me.is_owner ? '<button data-v="teams">Teams</button>' : ''}
     <div class="sp"></div><span id="usage" class="hide-s"></span><input id="search" placeholder="Search files…">
     <button id="acct">${esc(me.name)} ▾</button></header><main id="main"></main>`;
   $$('[data-v]').forEach((b) => b.onclick = () => { view = b.dataset.v; folder = 'root'; $('#search').value = ''; render(); });
@@ -226,7 +232,11 @@ function shell() {
   render();
 }
 async function usage() {
-  try { const s = await api('/api/stats'); $('#usage').textContent = `${fmt(s.bytes)} used · ${s.files} files`; } catch {}
+  try {
+    const s = await api('/api/stats'), u = $('#usage');
+    u.textContent = s.quota ? `${fmt(s.bytes)} of ${fmt(s.quota)} used` : `${fmt(s.bytes)} used · ${s.files} files`;
+    u.classList.toggle('warn', !!s.quota && s.bytes / s.quota >= 0.9);
+  } catch {}
 }
 
 // ---------- Listing ----------
@@ -436,6 +446,10 @@ async function render() {
       $$('[data-cpl]').forEach((b) => b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.cpl); b.textContent = 'Copied'; } catch { showLink(b.dataset.cpl); } });
       $$('[data-rv]').forEach((b) => b.onclick = () => modal({ title: 'Revoke this link?', body: '<span class="m">It stops working immediately.</span>', submit: 'Revoke',
         onOk: async () => { await api(`/api/shares/${b.dataset.rv}`, { method: 'DELETE' }); render(); } }));
+    } else if (view === 'activity') {
+      await activityView(m);
+    } else if (view === 'teams') {
+      await teamsView(m);
     } else if (view === 'users') {
       const us = await api('/api/users');
       m.innerHTML = `<div class="bar"><b>Team members</b></div>
@@ -462,6 +476,81 @@ async function render() {
     if (err.message === 'Folder not found' && folder !== 'root') { folder = 'root'; return render(); }
     m.innerHTML = `<div class="err">${esc(err.message)}</div>`;
   }
+}
+
+// ---------- Activity ----------
+const ACT = { login: 'Signed in', login_failed: 'Failed sign-in', password_change: 'Changed their password', password_reset: 'Reset the password of',
+  '2fa_on': 'Turned on two-step login', '2fa_off': 'Turned off two-step login', '2fa_reset': 'Reset two-step login for', backup_codes: 'Made new backup codes',
+  user_add: 'Added member', user_remove: 'Removed member', upload: 'Uploaded', new_version: 'Uploaded a new version of', version_restore: 'Restored an older version of',
+  download: 'Downloaded', zip_download: 'Downloaded as zip', rename: 'Renamed', move: 'Moved', delete: 'Moved to Trash', restore: 'Restored from Trash',
+  purge: 'Deleted forever', folder_create: 'Created folder', access_change: 'Changed access to', share_create: 'Created a share link for',
+  share_revoke: 'Revoked a share link for', share_open: 'Downloaded via share link', team_create: 'Created team', team_update: 'Updated team' };
+const ACT_GROUPS = {
+  'Files & folders': 'upload,new_version,version_restore,download,zip_download,rename,move,delete,restore,purge,folder_create',
+  'Sharing': 'share_create,share_revoke,share_open',
+  'Sign-ins & security': 'login,login_failed,password_change,password_reset,2fa_on,2fa_off,2fa_reset,backup_codes,access_change',
+  'Members': 'user_add,user_remove', 'Deletions only': 'delete,purge', 'Failed sign-ins only': 'login_failed' };
+const ICON = { file: '📄', folder: '📁', user: '👤', team: '🏢' };
+let actFilter = {};
+async function activityView(m) {
+  const members = await api('/api/users');
+  m.innerHTML = `<div class="bar"><b>Activity</b><span class="m">Everything your team did in the last year.</span><div style="flex:1"></div><button id="csv">Export CSV</button></div>
+    <div class="filters"><select id="fUser"><option value="">Everyone</option>${members.map((u) => `<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select>
+    <select id="fAct"><option value="">All actions</option>${Object.entries(ACT_GROUPS).map(([k, v]) => `<option value="${v}">${esc(k)}</option>`).join('')}</select>
+    <input type="search" id="fQ" placeholder="File or folder name…"><input type="date" id="fFrom" title="From"><input type="date" id="fTo" title="To"></div>
+    <table><thead><tr><th>When</th><th>Who</th><th>What</th><th class="hide-s">Details</th></tr></thead><tbody id="actRows"></tbody></table>
+    <div class="row" style="justify-content:center;margin-top:12px"><button id="more" hidden>Load more</button></div>`;
+  const ids = { fUser: 'user', fAct: 'action', fQ: 'q', fFrom: 'from', fTo: 'to' };
+  for (const [id, k] of Object.entries(ids)) { if (actFilter[k]) $('#' + id).value = actFilter[k]; }
+  const qs = (extra = {}) => new URLSearchParams(Object.fromEntries(Object.entries({ ...actFilter, ...extra }).filter(([, v]) => v))).toString();
+  let last = 0;
+  const load = async (append) => {
+    const d = await api(`/api/activity?${qs(append ? { before: last } : {})}`);
+    const html = d.items.map((a) => `<tr class="${a.action === 'login_failed' ? 'bad' : ''}"><td class="m when" title="${esc(new Date(a.created_at).toLocaleString())}">${when(a.created_at)}</td>
+      <td>${esc(a.user_name || (a.user_id ? 'Removed member' : a.action === 'share_open' ? 'Someone with a link' : 'TeamDrive owner'))}</td>
+      <td>${esc(ACT[a.action] || a.action)}${a.target_name ? ` ${ICON[a.target_type] || ''} <b>${esc(a.target_name)}</b>` : ''}<div class="m mob">${esc(a.detail || '')}</div></td>
+      <td class="m hide-s">${esc(a.detail || '')}${a.ip && /login/.test(a.action) ? ` <span class="tag">${esc(a.ip)}</span>` : ''}</td></tr>`).join('');
+    if (append) $('#actRows').insertAdjacentHTML('beforeend', html);
+    else $('#actRows').innerHTML = html || '<tr><td colspan="4" class="m">No activity matches these filters.</td></tr>';
+    if (d.items.length) last = d.items[d.items.length - 1].id;
+    $('#more').hidden = !d.more;
+  };
+  let t;
+  const apply = () => { clearTimeout(t); t = setTimeout(() => { for (const [id, k] of Object.entries(ids)) actFilter[k] = $('#' + id).value; load(false); }, 250); };
+  Object.keys(ids).forEach((id) => { $('#' + id).oninput = apply; });
+  $('#more').onclick = () => load(true);
+  $('#csv').onclick = () => { location.href = `/api/activity.csv?${qs()}`; };
+  await load(false);
+}
+
+// ---------- Teams (owner) ----------
+async function teamsView(m) {
+  const teams = await api('/api/owner/teams');
+  m.innerHTML = `<div class="bar"><b>Teams</b><span class="m">Only you (the TeamDrive owner) see this page. You can't open other teams' files.</span><div style="flex:1"></div><button class="p" id="nt">New team</button></div>
+    <table><tr><th>Team</th><th class="hide-s">Admins</th><th class="hide-s">Members</th><th>Storage</th><th class="hide-s">Created</th><th></th></tr>
+    ${teams.map((t) => { const pct = t.quota_bytes ? Math.min(100, (t.used / t.quota_bytes) * 100) : 0;
+      return `<tr><td>${esc(t.name)}${t.mine ? '<span class="tag">your team</span>' : ''}${t.disabled ? '<span class="tag" style="color:var(--danger)">disabled</span>' : ''}</td>
+      <td class="m hide-s">${esc(t.admins || '—')}</td><td class="m hide-s">${t.members}</td>
+      <td class="m">${fmt(t.used)} ${t.quota_bytes ? `of ${fmt(t.quota_bytes)}<div class="qbar"><i class="${pct >= 90 ? 'hi' : ''}" style="width:${pct}%"></i></div>` : '· no limit'}</td>
+      <td class="m hide-s">${day(t.created_at)}</td><td class="acts"><button data-tm="${t.id}">⋯</button></td></tr>`; }).join('')}</table>`;
+  const byId = Object.fromEntries(teams.map((t) => [t.id, t]));
+  $('#nt').onclick = () => modal({ title: 'New team', submit: 'Create team',
+    body: field('name', 'Team (company) name', 'text', 'required') +
+      field('quota_gb', 'Storage limit in GB (leave empty for no limit)', 'number', 'min="0" step="any" value="50"') +
+      '<b style="margin-top:6px">First admin</b>' + field('admin_name', 'Name', 'text', 'required') + field('admin_email', 'Email', 'email', 'required') +
+      field('admin_password', 'Temporary password (8+ characters)', 'text', 'required minlength="8" autocomplete="off"') +
+      '<span class="m">They will be asked to set up two-step login the first time they sign in, and can change the password from their account menu.</span>',
+    onOk: async (v) => { await api('/api/owner/teams', { method: 'POST', body: v }); render();
+      setTimeout(() => notify(`Team "${v.name}" is ready. Send ${v.admin_email} the sign-in address and their temporary password (separately).`)); } });
+  $$('[data-tm]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); const t = byId[b.dataset.tm]; menu(b, [
+    { label: 'Edit name & storage…', run: () => modal({ title: `Edit "${t.name}"`, submit: 'Save',
+        body: field('name', 'Team name', 'text', `required value="${esc(t.name)}"`) +
+          field('quota_gb', 'Storage limit in GB (empty = no limit)', 'number', `min="0" step="any" value="${t.quota_bytes ? +(t.quota_bytes / 1073741824).toFixed(2) : ''}"`),
+        onOk: async (v) => { await api(`/api/owner/teams/${t.id}`, { method: 'PATCH', body: v }); render(); } }) },
+    !t.mine && { label: t.disabled ? 'Enable team' : 'Disable team…', danger: !t.disabled, run: () => t.disabled
+        ? api(`/api/owner/teams/${t.id}`, { method: 'PATCH', body: { disabled: false } }).then(render)
+        : modal({ title: `Disable "${t.name}"?`, submit: 'Disable', body: '<span class="m">Its members are signed out and can\'t sign in, and its share links stop working. Files are kept; you can enable it again any time.</span>',
+            onOk: async () => { await api(`/api/owner/teams/${t.id}`, { method: 'PATCH', body: { disabled: true } }); render(); } }) }]); });
 }
 
 // ---------- Uploads ----------

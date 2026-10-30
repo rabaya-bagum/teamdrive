@@ -1,32 +1,47 @@
 -- Full schema for a fresh install. Existing installs are upgraded automatically
 -- when the app starts, so you never need to re-run this after an update.
 
+-- Each customer company is a team. Everything below belongs to exactly one team.
+CREATE TABLE IF NOT EXISTS teams (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  quota_bytes BIGINT NULL,
+  disabled TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
+  team_id INT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
   name VARCHAR(255) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   is_admin TINYINT(1) NOT NULL DEFAULT 0,
+  is_owner TINYINT(1) NOT NULL DEFAULT 0,
   totp_secret VARCHAR(255) NULL,
   totp_enabled TINYINT(1) NOT NULL DEFAULT 0,
   totp_last_step BIGINT NOT NULL DEFAULT 0,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_users_team (team_id)
 );
 
 CREATE TABLE IF NOT EXISTS folders (
   id INT AUTO_INCREMENT PRIMARY KEY,
+  team_id INT NULL,
   parent_id INT NULL,
   name VARCHAR(255) NOT NULL,
   created_by INT NOT NULL,
   restricted TINYINT(1) NOT NULL DEFAULT 0,
   deleted_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_folders_team (team_id, parent_id),
   FOREIGN KEY (parent_id) REFERENCES folders(id) ON DELETE CASCADE,
   FOREIGN KEY (created_by) REFERENCES users(id)
 );
 
 CREATE TABLE IF NOT EXISTS files (
   id INT AUTO_INCREMENT PRIMARY KEY,
+  team_id INT NULL,
   folder_id INT NULL,
   name VARCHAR(255) NOT NULL,
   r2_key VARCHAR(512) NOT NULL UNIQUE,
@@ -37,6 +52,7 @@ CREATE TABLE IF NOT EXISTS files (
   deleted_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NULL,
+  INDEX idx_files_team (team_id, folder_id),
   FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE CASCADE,
   FOREIGN KEY (uploaded_by) REFERENCES users(id)
 );
@@ -105,4 +121,20 @@ CREATE TABLE IF NOT EXISTS trusted_devices (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX (token_hash),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Who did what, per team. Kept for ACTIVITY_DAYS (default 365).
+CREATE TABLE IF NOT EXISTS activity_log (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  team_id INT NOT NULL,
+  user_id INT NULL,
+  action VARCHAR(40) NOT NULL,
+  target_type VARCHAR(20) NULL,
+  target_id INT NULL,
+  target_name VARCHAR(255) NULL,
+  detail VARCHAR(500) NULL,
+  ip VARCHAR(64) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_activity_team (team_id, id),
+  INDEX idx_activity_user (team_id, user_id, id)
 );
