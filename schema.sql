@@ -43,3 +43,14 @@ CREATE TABLE IF NOT EXISTS share_links (
   FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
   FOREIGN KEY (created_by) REFERENCES users(id)
 );
+
+-- Files removed with "Delete forever" wait here before being erased from R2.
+-- The app also creates this table automatically on startup.
+CREATE TABLE IF NOT EXISTS purge_queue (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  r2_key VARCHAR(512) NOT NULL UNIQUE,
+  name VARCHAR(255) NOT NULL,
+  size BIGINT NOT NULL DEFAULT 0,
+  purge_after DATETIME NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

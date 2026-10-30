@@ -29,10 +29,32 @@ const cleanName = (s) => String(s || '').replace(/[\/\\\0]/g, '').trim().slice(0
 const idOrNull = (v) => (v === null || v === undefined || v === '' || v === 'root' ? null : Number(v));
 
 // ---------- Auth ----------
+// Simple in-memory limiter: 5 failed tries per email+IP, 20 per IP, per 15 minutes.
+const fails = new Map();
+const WINDOW = 15 * 60 * 1000;
+function tooMany(key, max) {
+  const r = fails.get(key);
+  if (!r || r.reset < Date.now()) return false;
+  return r.count >= max;
+}
+function addFail(key) {
+  const r = fails.get(key);
+  if (!r || r.reset < Date.now()) fails.set(key, { count: 1, reset: Date.now() + WINDOW });
+  else r.count++;
+}
+setInterval(() => { const now = Date.now(); for (const [k, r] of fails) if (r.reset < now) fails.delete(k); }, WINDOW).unref();
+
 app.post('/api/login', wrap(async (req, res) => {
-  const [u] = await q('SELECT * FROM users WHERE email = ?', [String(req.body.email || '').toLowerCase()]);
-  if (!u || !(await bcrypt.compare(String(req.body.password || ''), u.password_hash)))
+  const email = String(req.body.email || '').toLowerCase();
+  const ipKey = `ip:${req.ip}`, userKey = `u:${req.ip}:${email}`;
+  if (tooMany(ipKey, 20) || tooMany(userKey, 5))
+    return res.status(429).json({ error: 'Too many failed attempts. Try again in 15 minutes.' });
+  const [u] = await q('SELECT * FROM users WHERE email = ?', [email]);
+  if (!u || !(await bcrypt.compare(String(req.body.password || ''), u.password_hash))) {
+    addFail(ipKey); addFail(userKey);
     return res.status(401).json({ error: 'Wrong email or password' });
+  }
+  fails.delete(userKey);
   req.session.regenerate((err) => {
     if (err) throw err;
     req.session.user = { id: u.id, name: u.name, email: u.email, is_admin: !!u.is_admin };
@@ -63,7 +85,27 @@ app.delete('/api/users/:id', auth, admin, wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// ---------- Passwords ----------
+app.post('/api/me/password', auth, wrap(async (req, res) => {
+  const { current, password } = req.body;
+  if (!password || password.length < 8) return res.status(400).json({ error: 'New password must be 8+ characters' });
+  const [u] = await q('SELECT password_hash FROM users WHERE id=?', [req.session.user.id]);
+  if (!u || !(await bcrypt.compare(String(current || ''), u.password_hash)))
+    return res.status(400).json({ error: 'Current password is wrong' });
+  await q('UPDATE users SET password_hash=? WHERE id=?', [await bcrypt.hash(password, 12), req.session.user.id]);
+  res.json({ ok: true });
+}));
+app.post('/api/users/:id/password', auth, admin, wrap(async (req, res) => {
+  const { password } = req.body;
+  if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be 8+ characters' });
+  await q('UPDATE users SET password_hash=? WHERE id=?', [await bcrypt.hash(password, 12), req.params.id]);
+  res.json({ ok: true });
+}));
+
 // ---------- Browse ----------
+app.get('/api/folders-all', auth, wrap(async (req, res) => {
+  res.json(await q('SELECT id, name, parent_id FROM folders WHERE deleted_at IS NULL ORDER BY name'));
+}));
 app.get('/api/folders/:id', auth, wrap(async (req, res) => {
   const id = idOrNull(req.params.id);
   const where = id === null ? 'IS NULL' : '= ?';
@@ -102,9 +144,23 @@ app.post('/api/folders', auth, wrap(async (req, res) => {
   res.json({ id: r.insertId });
 }));
 app.patch('/api/folders/:id', auth, wrap(async (req, res) => {
-  const name = cleanName(req.body.name);
-  if (!name) return res.status(400).json({ error: 'Name required' });
-  await q('UPDATE folders SET name=? WHERE id=?', [name, req.params.id]);
+  const id = Number(req.params.id);
+  if (req.body.name !== undefined) {
+    const name = cleanName(req.body.name);
+    if (!name) return res.status(400).json({ error: 'Name required' });
+    await q('UPDATE folders SET name=? WHERE id=?', [name, id]);
+  }
+  if (req.body.parent_id !== undefined) {
+    const target = idOrNull(req.body.parent_id);
+    // Refuse to move a folder into itself or one of its own subfolders.
+    for (let cur = target; cur !== null; ) {
+      if (cur === id) return res.status(400).json({ error: "Can't move a folder into itself" });
+      const [f] = await q('SELECT parent_id FROM folders WHERE id=?', [cur]);
+      if (!f) return res.status(400).json({ error: 'Target folder not found' });
+      cur = f.parent_id;
+    }
+    await q('UPDATE folders SET parent_id=? WHERE id=?', [target, id]);
+  }
   res.json({ ok: true });
 }));
 app.delete('/api/folders/:id', auth, wrap(async (req, res) => {
@@ -164,22 +220,38 @@ app.post('/api/trash/:type/:id/restore', auth, wrap(async (req, res) => {
   await q(`UPDATE ${t} SET deleted_at=NULL WHERE id=?`, [req.params.id]);
   res.json({ ok: true });
 }));
-// Permanent purge is admin-only (R2 versioning still keeps a copy).
+// Permanent purge is admin-only. Storage objects are kept for PURGE_DAYS before
+// being removed from R2, so an accidental "Delete forever" can still be recovered.
+const PURGE_DAYS = Number(process.env.PURGE_DAYS || 30);
+async function queuePurge(files) {
+  for (const f of files)
+    await q('INSERT IGNORE INTO purge_queue (r2_key, name, size, purge_after) VALUES (?,?,?, NOW() + INTERVAL ? DAY)',
+      [f.r2_key, f.name, f.size, PURGE_DAYS]);
+}
 app.delete('/api/trash/:type/:id', auth, admin, wrap(async (req, res) => {
   if (req.params.type === 'file') {
-    const [f] = await q('SELECT r2_key FROM files WHERE id=? AND deleted_at IS NOT NULL', [req.params.id]);
-    if (f) { await r2.remove(f.r2_key).catch(() => {}); await q('DELETE FROM files WHERE id=?', [req.params.id]); }
+    const files = await q('SELECT r2_key, name, size FROM files WHERE id=? AND deleted_at IS NOT NULL', [req.params.id]);
+    if (files.length) { await queuePurge(files); await q('DELETE FROM files WHERE id=?', [req.params.id]); }
   } else {
-    // collect every file under this folder tree, remove from R2, then cascade delete
     const ids = [Number(req.params.id)];
     for (let i = 0; i < ids.length; i++)
       (await q('SELECT id FROM folders WHERE parent_id=?', [ids[i]])).forEach((r) => ids.push(r.id));
-    const files = await q('SELECT r2_key FROM files WHERE folder_id IN (?)', [ids]);
-    for (const f of files) await r2.remove(f.r2_key).catch(() => {});
+    await queuePurge(await q('SELECT r2_key, name, size FROM files WHERE folder_id IN (?)', [ids]));
     await q('DELETE FROM folders WHERE id=?', [req.params.id]);
   }
   res.json({ ok: true });
 }));
+
+async function runPurge() {
+  try {
+    const due = await q('SELECT id, r2_key FROM purge_queue WHERE purge_after < NOW() LIMIT 500');
+    for (const d of due) {
+      await r2.remove(d.r2_key);
+      await q('DELETE FROM purge_queue WHERE id=?', [d.id]);
+    }
+    if (due.length) console.log(`Purged ${due.length} object(s) from storage`);
+  } catch (e) { console.error('Purge job failed:', e.message); }
+}
 
 // ---------- Share links ----------
 app.post('/api/files/:id/share', auth, wrap(async (req, res) => {
@@ -206,4 +278,22 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ error: err.status ? err.message : 'Server error' });
 });
 
-app.listen(process.env.PORT || 3000, () => console.log(`TeamDrive on :${process.env.PORT || 3000}`));
+// Create any tables added after the first release, so updates need no manual SQL.
+async function migrate() {
+  await q(`CREATE TABLE IF NOT EXISTS purge_queue (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    r2_key VARCHAR(512) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    size BIGINT NOT NULL DEFAULT 0,
+    purge_after DATETIME NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`);
+}
+
+migrate()
+  .then(() => {
+    app.listen(process.env.PORT || 3000, () => console.log(`TeamDrive on :${process.env.PORT || 3000}`));
+    runPurge();
+    setInterval(runPurge, 60 * 60 * 1000).unref();
+  })
+  .catch((e) => { console.error('Startup failed:', e); process.exit(1); });
