@@ -6,8 +6,10 @@ const session = require('express-session');
 const MySQLStore = require('express-mysql-session')(session);
 const bcrypt = require('bcryptjs');
 const archiver = require('archiver');
+const QRCode = require('qrcode');
 const { pool, q } = require('./db');
 const r2 = require('./r2');
+const totp = require('./totp');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -29,7 +31,16 @@ const PURGE_DAYS = Number(process.env.PURGE_DAYS || 30);
 
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 const httpErr = (status, message) => Object.assign(new Error(message), { status });
-const auth = (req, res, next) => (req.session.user ? next() : res.status(401).json({ error: 'Not signed in' }));
+// Bump SESSION_V to sign everyone out (done when two-step login was added).
+const SESSION_V = 2;
+const auth = (req, res, next) => {
+  const u = req.session.user;
+  if (!u || u.v !== SESSION_V) return res.status(401).json({ error: 'Not signed in' });
+  // Accounts that must use two-step login can only reach the setup screens until it's on.
+  if (u.must_setup_2fa && !req.path.startsWith('/api/2fa/') && req.path !== '/api/me')
+    return res.status(403).json({ error: 'Set up two-step login first', setup2fa: true });
+  next();
+};
 const admin = (req, res, next) => (req.session.user?.is_admin ? next() : res.status(403).json({ error: 'Admins only' }));
 const cleanName = (s) => String(s || '').replace(/[\/\\\0]/g, '').trim().slice(0, 255);
 const idOrNull = (v) => (v === null || v === undefined || v === '' || v === 'root' ? null : Number(v));
@@ -91,6 +102,70 @@ async function requireFolder(req, id) {
   return acl;
 }
 
+// ---------- Two-step login helpers ----------
+// REQUIRE_2FA: "admins" (default) | "all" | "none"
+const POLICY = String(process.env.REQUIRE_2FA || 'admins').toLowerCase();
+const requires2fa = (u) => POLICY === 'all' || (POLICY === 'admins' && !!u.is_admin);
+const TRUST_DAYS = 30;
+const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
+const cookieOf = (req, name) => {
+  for (const part of String(req.headers.cookie || '').split(';')) {
+    const [k, ...v] = part.trim().split('=');
+    if (k === name) return decodeURIComponent(v.join('='));
+  }
+  return null;
+};
+const sessionUser = (u) => ({ v: SESSION_V, id: u.id, name: u.name, email: u.email, is_admin: !!u.is_admin,
+  must_setup_2fa: requires2fa(u) && !u.totp_enabled });
+function startSession(req, res, u) {
+  req.session.regenerate((err) => {
+    if (err) return res.status(500).json({ error: 'Server error' });
+    req.session.user = sessionUser(u);
+    res.json(req.session.user);
+  });
+}
+async function isTrustedDevice(req, userId) {
+  const t = cookieOf(req, 'td_trust');
+  if (!t) return false;
+  const [row] = await q('SELECT id FROM trusted_devices WHERE user_id=? AND token_hash=? AND expires_at > NOW()', [userId, sha(t)]);
+  return !!row;
+}
+async function trustDevice(res, userId) {
+  const t = crypto.randomBytes(32).toString('hex');
+  await q('INSERT INTO trusted_devices (user_id, token_hash, expires_at) VALUES (?,?, NOW() + INTERVAL ? DAY)', [userId, sha(t), TRUST_DAYS]);
+  res.cookie('td_trust', t, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: TRUST_DAYS * 864e5 });
+}
+// Accepts a 6-digit authenticator code or an unused backup code.
+async function checkSecondFactor(u, raw) {
+  const code = String(raw || '').replace(/[\s-]/g, '').toLowerCase();
+  if (/^\d{6}$/.test(code)) {
+    if (!u.totp_secret) return false;
+    const step = totp.verify(totp.open(u.totp_secret), code, Number(u.totp_last_step || 0));
+    if (step === null) return false;
+    await q('UPDATE users SET totp_last_step=? WHERE id=?', [step, u.id]);
+    return true;
+  }
+  if (!/^[a-z2-7]{8}$/.test(code)) return false;
+  const r = await q('UPDATE backup_codes SET used_at=NOW() WHERE user_id=? AND code_hash=? AND used_at IS NULL', [u.id, sha(code)]);
+  return r.affectedRows === 1;
+}
+async function newBackupCodes(userId) {
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz234567';
+  const codes = Array.from({ length: 10 }, () => [...crypto.randomBytes(8)].map((b) => alphabet[b & 31]).join(''));
+  await q('DELETE FROM backup_codes WHERE user_id=?', [userId]);
+  await q('INSERT INTO backup_codes (user_id, code_hash) VALUES ?', [codes.map((c) => [userId, sha(c)])]);
+  return codes.map((c) => `${c.slice(0, 4)}-${c.slice(4)}`);
+}
+async function clear2fa(userId) {
+  await q('UPDATE users SET totp_secret=NULL, totp_enabled=0, totp_last_step=0 WHERE id=?', [userId]);
+  await q('DELETE FROM backup_codes WHERE user_id=?', [userId]);
+  await q('DELETE FROM trusted_devices WHERE user_id=?', [userId]);
+}
+async function checkPassword(userId, password) {
+  const [u] = await q('SELECT password_hash FROM users WHERE id=?', [userId]);
+  return !!u && bcrypt.compare(String(password || ''), u.password_hash);
+}
+
 // ---------- Auth ----------
 app.post('/api/login', wrap(async (req, res) => {
   const email = String(req.body.email || '').toLowerCase();
@@ -103,22 +178,84 @@ app.post('/api/login', wrap(async (req, res) => {
     return res.status(401).json({ error: 'Wrong email or password' });
   }
   fails.delete(userKey);
-  req.session.regenerate((err) => {
-    if (err) return res.status(500).json({ error: 'Server error' });
-    req.session.user = { id: u.id, name: u.name, email: u.email, is_admin: !!u.is_admin };
-    res.json(req.session.user);
-  });
+  if (u.totp_enabled && !(await isTrustedDevice(req, u.id))) {
+    // Password was right; now ask for the code. Nothing is unlocked until it's verified.
+    return req.session.regenerate((err) => {
+      if (err) return res.status(500).json({ error: 'Server error' });
+      req.session.pending2fa = { uid: u.id, at: Date.now() };
+      res.json({ needs2fa: true });
+    });
+  }
+  startSession(req, res, u);
+}));
+app.post('/api/login/2fa', wrap(async (req, res) => {
+  const p = req.session.pending2fa;
+  if (!p || Date.now() - p.at > 10 * 60 * 1000)
+    return res.status(401).json({ error: 'Sign-in timed out. Enter your password again.', restart: true });
+  const key = `2fa:${p.uid}`;
+  if (tooMany(key, 5)) return res.status(429).json({ error: 'Too many wrong codes. Try again in 15 minutes.' });
+  const [u] = await q('SELECT * FROM users WHERE id=?', [p.uid]);
+  if (!u || !u.totp_enabled) return res.status(401).json({ error: 'Sign-in timed out. Enter your password again.', restart: true });
+  if (!(await checkSecondFactor(u, req.body.code))) {
+    addFail(key);
+    return res.status(401).json({ error: 'Wrong code' });
+  }
+  fails.delete(key);
+  if (req.body.trust) await trustDevice(res, u.id);
+  startSession(req, res, u);
 }));
 app.post('/api/logout', (req, res) => req.session.destroy(() => res.json({ ok: true })));
-app.get('/api/me', auth, (req, res) => res.json(req.session.user));
+app.get('/api/me', auth, wrap(async (req, res) => {
+  const [u] = await q('SELECT totp_enabled, is_admin FROM users WHERE id=?', [req.session.user.id]);
+  if (!u) return req.session.destroy(() => res.status(401).json({ error: 'Not signed in' }));
+  const [c] = await q('SELECT COUNT(*) AS n FROM backup_codes WHERE user_id=? AND used_at IS NULL', [req.session.user.id]);
+  res.json({ ...req.session.user, totp_enabled: !!u.totp_enabled, totp_required: requires2fa(u), backup_codes_left: c.n });
+}));
 
 app.post('/api/me/password', auth, wrap(async (req, res) => {
   const { current, password } = req.body;
   if (!password || password.length < 8) return res.status(400).json({ error: 'New password must be 8+ characters' });
-  const [u] = await q('SELECT password_hash FROM users WHERE id=?', [req.session.user.id]);
-  if (!u || !(await bcrypt.compare(String(current || ''), u.password_hash)))
-    return res.status(400).json({ error: 'Current password is wrong' });
+  if (!(await checkPassword(req.session.user.id, current))) return res.status(400).json({ error: 'Current password is wrong' });
   await q('UPDATE users SET password_hash=? WHERE id=?', [await bcrypt.hash(password, 12), req.session.user.id]);
+  await q('DELETE FROM trusted_devices WHERE user_id=?', [req.session.user.id]);
+  res.json({ ok: true });
+}));
+
+// ---------- Two-step login setup ----------
+app.post('/api/2fa/setup', auth, wrap(async (req, res) => {
+  const [u] = await q('SELECT email, totp_enabled FROM users WHERE id=?', [req.session.user.id]);
+  if (u.totp_enabled) return res.status(400).json({ error: 'Two-step login is already on' });
+  const secret = totp.newSecret();
+  await q('UPDATE users SET totp_secret=?, totp_last_step=0 WHERE id=?', [totp.seal(secret), req.session.user.id]);
+  const label = encodeURIComponent(`TeamDrive:${u.email}`);
+  const uri = `otpauth://totp/${label}?secret=${secret}&issuer=TeamDrive&algorithm=SHA1&digits=6&period=30`;
+  res.json({ secret: secret.replace(/(.{4})/g, '$1 ').trim(), qr: await QRCode.toDataURL(uri, { margin: 1, width: 220 }) });
+}));
+app.post('/api/2fa/enable', auth, wrap(async (req, res) => {
+  const [u] = await q('SELECT * FROM users WHERE id=?', [req.session.user.id]);
+  if (u.totp_enabled) return res.status(400).json({ error: 'Two-step login is already on' });
+  if (!u.totp_secret) return res.status(400).json({ error: 'Start setup first' });
+  const key = `2fa-setup:${u.id}`;
+  if (tooMany(key, 10)) return res.status(429).json({ error: 'Too many wrong codes. Try again in 15 minutes.' });
+  const code = String(req.body.code || '').replace(/\s/g, '');
+  const step = totp.verify(totp.open(u.totp_secret), code, 0);
+  if (step === null) { addFail(key); return res.status(400).json({ error: "That code didn't match. Check the time on your phone is set automatically and try the newest code." }); }
+  await q('UPDATE users SET totp_enabled=1, totp_last_step=? WHERE id=?', [step, u.id]);
+  const codes = await newBackupCodes(u.id);
+  req.session.user = { ...req.session.user, must_setup_2fa: false };
+  res.json({ codes });
+}));
+app.post('/api/2fa/backup-codes', auth, wrap(async (req, res) => {
+  if (!(await checkPassword(req.session.user.id, req.body.password))) return res.status(400).json({ error: 'Password is wrong' });
+  const [u] = await q('SELECT totp_enabled FROM users WHERE id=?', [req.session.user.id]);
+  if (!u.totp_enabled) return res.status(400).json({ error: 'Two-step login is off' });
+  res.json({ codes: await newBackupCodes(req.session.user.id) });
+}));
+app.post('/api/2fa/disable', auth, wrap(async (req, res) => {
+  const [u] = await q('SELECT * FROM users WHERE id=?', [req.session.user.id]);
+  if (requires2fa(u)) return res.status(400).json({ error: 'Two-step login is required for your account and cannot be turned off' });
+  if (!(await checkPassword(u.id, req.body.password))) return res.status(400).json({ error: 'Password is wrong' });
+  await clear2fa(u.id);
   res.json({ ok: true });
 }));
 
@@ -127,7 +264,8 @@ app.get('/api/members', auth, wrap(async (req, res) => {
   res.json(await q('SELECT id, name FROM users ORDER BY name'));
 }));
 app.get('/api/users', auth, admin, wrap(async (req, res) => {
-  res.json(await q('SELECT id, email, name, is_admin, created_at FROM users ORDER BY name'));
+  res.json((await q('SELECT id, email, name, is_admin, totp_enabled, created_at FROM users ORDER BY name'))
+    .map((u) => ({ ...u, is_admin: !!u.is_admin, totp_enabled: !!u.totp_enabled, totp_required: requires2fa(u) })));
 }));
 app.post('/api/users', auth, admin, wrap(async (req, res) => {
   const { email, name, password, is_admin } = req.body;
@@ -142,6 +280,13 @@ app.post('/api/users/:id/password', auth, admin, wrap(async (req, res) => {
   const { password } = req.body;
   if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be 8+ characters' });
   await q('UPDATE users SET password_hash=? WHERE id=?', [await bcrypt.hash(password, 12), req.params.id]);
+  await q('DELETE FROM trusted_devices WHERE user_id=?', [req.params.id]);
+  res.json({ ok: true });
+}));
+// For a member who lost their phone and backup codes. They set it up again at next sign-in if required.
+app.delete('/api/users/:id/2fa', auth, admin, wrap(async (req, res) => {
+  if (Number(req.params.id) === req.session.user.id) return res.status(400).json({ error: 'Use your own Two-step login settings instead' });
+  await clear2fa(req.params.id);
   res.json({ ok: true });
 }));
 app.delete('/api/users/:id', auth, admin, wrap(async (req, res) => {
@@ -584,6 +729,17 @@ async function migrate() {
   await addColumn('files', 'updated_at', 'DATETIME NULL');
   await addColumn('share_links', 'password_hash', 'VARCHAR(255) NULL');
   await addColumn('share_links', 'downloads', 'INT NOT NULL DEFAULT 0');
+  await addColumn('users', 'totp_secret', 'VARCHAR(255) NULL');
+  await addColumn('users', 'totp_enabled', 'TINYINT(1) NOT NULL DEFAULT 0');
+  await addColumn('users', 'totp_last_step', 'BIGINT NOT NULL DEFAULT 0');
+  await q(`CREATE TABLE IF NOT EXISTS backup_codes (
+    id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, code_hash CHAR(64) NOT NULL, used_at DATETIME NULL,
+    INDEX (user_id), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`);
+  await q(`CREATE TABLE IF NOT EXISTS trusted_devices (
+    id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, token_hash CHAR(64) NOT NULL, expires_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX (token_hash),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`);
+  await q('DELETE FROM trusted_devices WHERE expires_at < NOW()');
 }
 
 migrate()

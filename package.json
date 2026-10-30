@@ -17,6 +17,7 @@
     "express": "^4.19.2",
     "express-mysql-session": "^3.0.3",
     "express-session": "^1.18.0",
-    "mysql2": "^3.10.0"
+    "mysql2": "^3.10.0",
+    "qrcode": "^1.5.4"
   }
 }

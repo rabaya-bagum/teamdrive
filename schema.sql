@@ -7,6 +7,9 @@ CREATE TABLE IF NOT EXISTS users (
   name VARCHAR(255) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   is_admin TINYINT(1) NOT NULL DEFAULT 0,
+  totp_secret VARCHAR(255) NULL,
+  totp_enabled TINYINT(1) NOT NULL DEFAULT 0,
+  totp_last_step BIGINT NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -81,4 +84,25 @@ CREATE TABLE IF NOT EXISTS purge_queue (
   size BIGINT NOT NULL DEFAULT 0,
   purge_after DATETIME NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Two-step login: one-time backup codes (stored hashed).
+CREATE TABLE IF NOT EXISTS backup_codes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  code_hash CHAR(64) NOT NULL,
+  used_at DATETIME NULL,
+  INDEX (user_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Two-step login: "trust this device for 30 days" tokens (stored hashed).
+CREATE TABLE IF NOT EXISTS trusted_devices (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  token_hash CHAR(64) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (token_hash),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );

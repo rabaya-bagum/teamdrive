@@ -9,7 +9,7 @@
 @media (prefers-color-scheme:dark){:root{--bg:#111318;--card:#1a1d24;--ink:#e8eaf0;--mute:#9aa1ad;--line:#2a2e38;--acc:#5b8cff;--hover:#22262f}}
 *{box-sizing:border-box}body{margin:0;font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
 button,input,select{font:inherit}button{cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 12px;border-radius:8px}
-button:hover{background:var(--hover)}button.p{background:var(--acc);border-color:var(--acc);color:#fff}button.d{color:var(--danger)}
+button:hover{background:var(--hover)}button:disabled{opacity:.45;cursor:not-allowed}button.p{background:var(--acc);border-color:var(--acc);color:#fff}button.d{color:var(--danger)}
 button.on{border-color:var(--acc);color:var(--acc)}
 input,select{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 10px;border-radius:8px;width:100%}
 input[type=checkbox]{width:auto}
@@ -39,6 +39,11 @@ dialog.wide{width:min(960px,96vw)}dialog::backdrop{background:rgba(0,0,0,.45)}di
 .members{display:grid;gap:6px;max-height:40vh;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:8px}
 .members label{display:flex;gap:8px;align-items:center}
 .copy{display:flex;gap:6px}.copy input{flex:1}
+.steps{margin:0;padding-left:20px;display:grid;gap:12px}.steps li{padding-left:4px}
+.qr{margin:8px 0}.qr img{background:#fff;padding:8px;border-radius:8px;border:1px solid var(--line)}
+code{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--bg);padding:2px 6px;border-radius:5px;word-break:break-all}
+pre.codes{font:14px/1.9 ui-monospace,SFMono-Regular,Menlo,monospace;columns:2;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:0}
+#code2fa{font-size:22px;letter-spacing:4px;text-align:center}
 @media (max-width:700px){.hide-s{display:none}#search{max-width:none;order:9;flex-basis:100%}}
 </style>
 </head>
@@ -59,7 +64,7 @@ const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? 
 async function api(url, opts = {}) {
   const r = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts, body: opts.body && JSON.stringify(opts.body) });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error || 'Request failed');
+  if (!r.ok) throw Object.assign(new Error(j.error || 'Request failed'), { data: j, status: r.status });
   return j;
 }
 let me = null, folder = 'root', view = 'files', sort = store.get('td-sort', { key: 'name', dir: 1 });
@@ -110,9 +115,101 @@ function loginView(msg = '') {
   $('#lf').onsubmit = async (e) => {
     e.preventDefault();
     const f = new FormData(e.target);
-    try { me = await api('/api/login', { method: 'POST', body: { email: f.get('email'), password: f.get('password') } }); shell(); }
-    catch (err) { loginView(err.message); }
+    try {
+      const r = await api('/api/login', { method: 'POST', body: { email: f.get('email'), password: f.get('password') } });
+      r.needs2fa ? codeView() : afterLogin();
+    } catch (err) { loginView(err.message); }
   };
+}
+function codeView(msg = '') {
+  $('#app').innerHTML = `<form class="login" id="cf"><b style="font-size:20px">Two-step login</b>
+    <span class="m">Enter the 6-digit code from your authenticator app. Lost your phone? Enter one of your backup codes instead.</span>
+    <input id="code2fa" name="code" required autocomplete="one-time-code" inputmode="numeric" maxlength="9" placeholder="123456" autofocus>
+    <label class="m" style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="trust"> Trust this device for 30 days</label>
+    <button class="p">Verify</button><div class="err">${esc(msg)}</div><a class="m" href="#" id="back">← Use a different account</a></form>`;
+  $('#back').onclick = (e) => { e.preventDefault(); loginView(); };
+  $('#cf').onsubmit = async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    try { await api('/api/login/2fa', { method: 'POST', body: { code: f.get('code'), trust: !!f.get('trust') } }); afterLogin(); }
+    catch (err) { err.data?.restart ? loginView(err.message) : codeView(err.message); }
+  };
+  $('#code2fa').focus();
+}
+async function afterLogin() {
+  me = await api('/api/me');
+  me.must_setup_2fa ? setupGate() : shell();
+}
+async function logout() { await api('/api/logout', { method: 'POST' }).catch(() => {}); me = null; loginView(); }
+
+// ---------- Two-step login setup ----------
+function setupGate() {
+  $('#app').innerHTML = `<div class="login" style="max-width:480px"><b style="font-size:20px">Set up two-step login</b>
+    <span class="m">${me.is_admin ? 'Admin accounts' : 'All accounts'} on TeamDrive must use two-step login. It takes about a minute.</span>
+    <div id="tfa" style="display:grid;gap:10px"></div><button type="button" id="gOut">Sign out</button></div>`;
+  $('#gOut').onclick = logout;
+  renderSetup($('#tfa'), afterLogin);
+}
+async function renderSetup(el, onDone) {
+  let s;
+  try { s = await api('/api/2fa/setup', { method: 'POST' }); } catch (err) { el.innerHTML = `<div class="err">${esc(err.message)}</div>`; return; }
+  el.innerHTML = `<ol class="steps">
+    <li>Install an authenticator app on your phone, such as Google Authenticator, Microsoft Authenticator, 1Password or Authy.</li>
+    <li>In the app, add an account and scan this code:<div class="qr"><img src="${s.qr}" alt="QR code for your authenticator app" width="220" height="220"></div>
+      <span class="m">Can't scan? Choose "enter a setup key" and type <code>${esc(s.secret)}</code></span></li>
+    <li>Type the 6-digit code the app shows:<input id="tfaCode" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="123456" style="margin-top:6px"></li></ol>
+    <div class="err" id="tfaErr"></div><div class="row"><button type="button" class="p" id="tfaGo">Turn on</button></div>`;
+  const go = async () => {
+    try { const r = await api('/api/2fa/enable', { method: 'POST', body: { code: $('#tfaCode').value } }); showCodes(el, r.codes, onDone); }
+    catch (err) { $('#tfaErr').textContent = err.message; }
+  };
+  $('#tfaGo').onclick = go;
+  $('#tfaCode').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } };
+}
+function showCodes(el, codes, onDone, heading = 'Two-step login is on') {
+  el.innerHTML = `<b>${esc(heading)}</b><span class="m">Save these backup codes somewhere safe, like a password manager or a printout. Each one works once if you lose your phone.</span>
+    <pre class="codes">${codes.map(esc).join('\n')}</pre>
+    <div class="row" style="justify-content:flex-start"><button type="button" id="cCopy">Copy</button><button type="button" id="cDl">Download .txt</button></div>
+    <label class="m" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="cOk"> I've saved my backup codes</label>
+    <div class="row"><button type="button" class="p" id="cDone" disabled>Done</button></div>`;
+  const text = `TeamDrive backup codes for ${me.email}\nEach code works once.\n\n${codes.join('\n')}\n`;
+  $('#cCopy').onclick = async () => { try { await navigator.clipboard.writeText(text); $('#cCopy').textContent = 'Copied'; } catch {} };
+  $('#cDl').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' })); a.download = 'teamdrive-backup-codes.txt'; a.click(); };
+  $('#cOk').onchange = (e) => { $('#cDone').disabled = !e.target.checked; };
+  $('#cDone').onclick = onDone;
+}
+function askPassword(el, title, note, fn) {
+  el.innerHTML = `<b>${esc(title)}</b>${note ? `<span class="m">${esc(note)}</span>` : ''}
+    <label class="m">Your password<input type="password" id="apw" autocomplete="current-password"></label>
+    <div class="err" id="apErr"></div><div class="row"><button type="button" class="p" id="apGo">Continue</button></div>`;
+  const go = async () => { try { await fn($('#apw').value); } catch (err) { $('#apErr').textContent = err.message; } };
+  $('#apGo').onclick = go;
+  $('#apw').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } };
+  $('#apw').focus();
+}
+async function twoStepDialog() {
+  me = await api('/api/me');
+  const close = () => $('#dlg').close();
+  if (!me.totp_enabled) {
+    modal({ title: 'Two-step login', cancel: 'Close', body: `<div id="tfa" style="display:grid;gap:10px">
+      <span class="m">Each sign-in will also ask for a code from an app on your phone, so a stolen password alone isn't enough to get in.</span>
+      <div class="row" style="justify-content:flex-start"><button type="button" class="p" id="tfaStart">Set up</button></div></div>` });
+    $('#tfaStart').onclick = () => renderSetup($('#tfa'), close);
+  } else {
+    modal({ title: 'Two-step login', cancel: 'Close', body: `<div id="tfa" style="display:grid;gap:10px">
+      <span>✅ On${me.totp_required ? ' (required for your account)' : ''}</span>
+      <span class="m">${me.backup_codes_left} unused backup code${me.backup_codes_left === 1 ? '' : 's'} left.</span>
+      <div class="row" style="justify-content:flex-start"><button type="button" id="tfaNew">New backup codes</button>
+      ${me.totp_required ? '' : '<button type="button" class="d" id="tfaOff">Turn off</button>'}</div></div>` });
+    $('#tfaNew').onclick = () => askPassword($('#tfa'), 'New backup codes', 'Your old backup codes will stop working.', async (pw) => {
+      const r = await api('/api/2fa/backup-codes', { method: 'POST', body: { password: pw } });
+      showCodes($('#tfa'), r.codes, close, 'New backup codes');
+    });
+    if ($('#tfaOff')) $('#tfaOff').onclick = () => askPassword($('#tfa'), 'Turn off two-step login', 'Sign-in will only need your password.', async (pw) => {
+      await api('/api/2fa/disable', { method: 'POST', body: { password: pw } });
+      close(); setTimeout(() => notify('Two-step login is off.'));
+    });
+  }
 }
 
 function shell() {
@@ -123,7 +220,8 @@ function shell() {
   $$('[data-v]').forEach((b) => b.onclick = () => { view = b.dataset.v; folder = 'root'; $('#search').value = ''; render(); });
   $('#acct').onclick = (e) => { e.stopPropagation(); menu(e.currentTarget, [
     { label: 'Change password', run: changePassword },
-    { label: 'Sign out', run: async () => { await api('/api/logout', { method: 'POST' }); me = null; loginView(); } }]); };
+    { label: 'Two-step login', run: twoStepDialog },
+    { label: 'Sign out', run: logout }]); };
   let t; $('#search').oninput = (e) => { clearTimeout(t); t = setTimeout(() => { view = e.target.value.trim() ? 'search' : 'files'; render(); }, 250); };
   render();
 }
@@ -344,19 +442,23 @@ async function render() {
         <form id="uf" class="bar"><input name="name" placeholder="Name" required style="max-width:180px"><input name="email" type="email" placeholder="Email" required style="max-width:220px">
         <input name="password" type="password" placeholder="Temp password (8+)" required minlength="8" style="max-width:200px" autocomplete="new-password">
         <label class="m"><input type="checkbox" name="is_admin"> Admin</label><button class="p">Add</button></form>
-        <table><tr><th>Name</th><th class="hide-s">Email</th><th>Role</th><th></th></tr>${us.map((u) => `<tr><td>${esc(u.name)}</td><td class="m hide-s">${esc(u.email)}</td>
-        <td class="m">${u.is_admin ? 'Admin' : 'Member'}</td><td class="acts">${u.id === me.id ? '' : `<button data-um="${u.id}">⋯</button>`}</td></tr>`).join('')}</table>`;
+        <table><tr><th>Name</th><th class="hide-s">Email</th><th>Role</th><th class="hide-s">Two-step</th><th></th></tr>${us.map((u) => `<tr><td>${esc(u.name)}</td><td class="m hide-s">${esc(u.email)}</td>
+        <td class="m">${u.is_admin ? 'Admin' : 'Member'}</td><td class="m hide-s">${u.totp_enabled ? 'On' : u.totp_required ? '⚠️ Not set up' : 'Off'}</td><td class="acts">${u.id === me.id ? '' : `<button data-um="${u.id}">⋯</button>`}</td></tr>`).join('')}</table>`;
       $('#uf').onsubmit = async (e) => { e.preventDefault(); const f = new FormData(e.target);
         try { await api('/api/users', { method: 'POST', body: { name: f.get('name'), email: f.get('email'), password: f.get('password'), is_admin: !!f.get('is_admin') } }); render(); }
         catch (err) { notify(err.message); } };
       const U = Object.fromEntries(us.map((u) => [u.id, u]));
       $$('[data-um]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); const u = U[b.dataset.um]; menu(b, [
         { label: 'Reset password…', run: () => resetPassword(u) },
+        u.totp_enabled && { label: 'Reset two-step login…', run: () => modal({ title: `Reset two-step login for ${u.name}?`, submit: 'Reset',
+            body: `<span class="m">Use this if they lost their phone and backup codes. ${u.totp_required ? 'They will set it up again at their next sign-in.' : 'Their sign-in will only need a password until they set it up again.'}</span>`,
+            onOk: async () => { await api(`/api/users/${u.id}/2fa`, { method: 'DELETE' }); render(); } }) },
         { label: 'Remove member', danger: true, run: () => modal({ title: `Remove ${u.name}?`, submit: 'Remove',
             onOk: async () => { await api(`/api/users/${u.id}`, { method: 'DELETE' }); render(); }, body: '' }) }]); });
     }
   } catch (err) {
     if (err.message === 'Not signed in') return loginView();
+    if (err.data?.setup2fa) { me.must_setup_2fa = true; return setupGate(); }
     if (err.message === 'Folder not found' && folder !== 'root') { folder = 'root'; return render(); }
     m.innerHTML = `<div class="err">${esc(err.message)}</div>`;
   }
@@ -417,7 +519,7 @@ $('#dirPicker').onchange = (e) => {
   e.target.value = '';
 };
 
-api('/api/me').then((u) => { me = u; shell(); }).catch(() => loginView());
+api('/api/me').then((u) => { me = u; me.must_setup_2fa ? setupGate() : shell(); }).catch(() => loginView());
 </script>
 </body>
 </html>

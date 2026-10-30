@@ -23,6 +23,7 @@ npm run create-user -- you@equawire.com "Nazmul" "a-strong-password" --admin
 ## Notes
 - Files never pass through Hostinger — the browser uploads directly to R2 with a 1-hour signed URL, so large files work on shared hosting.
 - Delete = moves to Trash. Only admins can "Delete forever". The stored object stays in R2 for 30 days (`PURGE_DAYS` in `.env`) and is listed in the `purge_queue` table, so it can still be recovered; an hourly job then erases it.
+- **Two-step login (authenticator app):** required for admins, optional for members (*Name ▾ → Two-step login*). Set `REQUIRE_2FA` to `all`, `admins` (default) or `none`. Users get 10 backup codes and can tick "Trust this device for 30 days". An admin can reset a member's two-step login from the Users tab if they lose their phone. Secrets are encrypted with `SESSION_SECRET` — **don't change `SESSION_SECRET` later**, or everyone will need their two-step login reset.
 - Login is rate-limited: 5 wrong passwords per email (20 per IP) locks out for 15 minutes.
 - Everyone can change their password (Password button); admins can reset anyone's from the Users tab.
 - Files and folders can be moved with the Move button.
