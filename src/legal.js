@@ -152,7 +152,7 @@ function privacy() {
 <li>We collect what's needed to run TeamDrive: your name, email and sign-in details, the files your team uploads, and a record of activity in your team.</li>
 <li>We don't sell personal information, show ads, use tracking or analytics cookies, or use your files to train AI.</li>
 <li>Your team's Admins can see your team's activity, including when you sign in and what you upload, download or share.</li>
-<li>Data is stored with Hostinger (app and database) and Cloudflare (files), and may be processed outside Canada.</li>
+<li>Data is stored in the United States: the app and database with Hostinger in North Carolina, and files with Cloudflare in Eastern North America.</li>
 <li>You can ask to see, correct or delete your personal information by emailing ${mail}.</li>
 </ul></div>
 
@@ -199,11 +199,11 @@ function privacy() {
 <h2>5. Service providers and where data is stored</h2>
 <p>We use these providers to run TeamDrive. They process data only on our instructions and are bound by confidentiality and security obligations:</p>
 <div class="wrap"><table>
-<tr><th>Provider</th><th>What they do</th></tr>
-<tr><td>Hostinger</td><td>Hosts the TeamDrive application and its database (accounts, file and folder details, share links, activity log)</td></tr>
-<tr><td>Cloudflare (R2)</td><td>Stores the files themselves and their older versions. Files are encrypted at rest by Cloudflare.</td></tr>
+<tr><th>Provider</th><th>What they do</th><th>Where</th></tr>
+<tr><td>Hostinger</td><td>Hosts the TeamDrive application and its database (accounts, file and folder details, share links, activity log)</td><td>North Carolina, United States</td></tr>
+<tr><td>Cloudflare (R2)</td><td>Stores the files themselves and their older versions. Files are encrypted at rest by Cloudflare.</td><td>Eastern North America region, which can include the United States</td></tr>
 </table></div>
-<p>These providers may store and process information <b>outside Canada</b>, including in the United States and the European Union. While it is there, it is subject to the laws of those countries and may be accessible to their courts, law enforcement and national security authorities.</p>
+<p>This means your information is stored and processed <b>outside Canada</b>, mainly in the United States. Our providers may also handle it in other countries where they operate, for example for support or security. While it is there, it is subject to the laws of those countries and may be accessible to their courts, law enforcement and national security authorities.</p>
 <p>We may also share information if the law requires it (for example a valid court order), to protect people's safety or our legal rights, or as part of a transfer of the TeamDrive business, including to a corporation formed by ${esc(c.name)}'s owner. A new owner would have to protect the information as this policy describes.</p>
 
 <h2>6. Cookies and similar technology</h2>
