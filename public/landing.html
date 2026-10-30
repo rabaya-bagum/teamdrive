@@ -135,7 +135,7 @@ footer .sp{flex:1}
       <h1>Your team's files, in one place you control.</h1>
       <p class="lede">TeamDrive keeps client work organized, private and easy to share, without handing your files to an ad company.</p>
       <div class="ctas">
-        <a class="btn primary" href="#request">Request access</a>
+        <a class="btn primary" href="#request">Start a free 30-day trial</a>
       </div>
       <p class="trust">Made by Equawire, a small software company in Ontario, Canada. Your files are never used for ads or AI training.</p>
     </div>
@@ -199,8 +199,8 @@ footer .sp{flex:1}
   <div class="wrap split">
     <div><h2>Pricing</h2></div>
     <div>
-      <p class="price">Each team gets its own space with a storage limit sized for you.</p>
-      <p class="intro" style="margin-bottom:0">Tell us how many people you have and roughly how much you store, and we'll send you a quote. There's no charge to talk it through.</p>
+      <p class="price">Try it free for 30 days with your whole team. No credit card.</p>
+      <p class="intro" style="margin-bottom:0">Each team gets its own space with a storage limit sized for you. Before your trial ends, we'll send you a price based on how many people you have and how much you store. If it isn't right for you, there's nothing to cancel.</p>
     </div>
   </div>
 </section>
@@ -209,6 +209,7 @@ footer .sp{flex:1}
   <div class="wrap split">
     <div><h2>Questions</h2></div>
     <div class="faq">
+      <details><summary>What happens when the free trial ends?</summary><p>Nothing is charged automatically. A few days before it ends, we'll send you a price. If you'd like to keep going, we agree it with you and carry on with everything as it is. If not, you have 30 days to download your files, and then they're deleted.</p></details>
       <details><summary>How much can we store?</summary><p>Each team has a storage limit that we agree with you, and you can see how much you've used at the top of TeamDrive. Single files can be up to 2 GB. If you need more room, ask and we'll raise the limit.</p></details>
       <details><summary>Can we move over from Google Drive or Dropbox?</summary><p>Yes. Download your folders from Google Drive (or use Google Takeout) or Dropbox, then drag the folders into TeamDrive. The folder structure is kept as it is.</p></details>
       <details><summary>Where are our files stored?</summary><p>Files are stored by Cloudflare and the app runs on Hostinger. Both may keep data outside Canada, for example in the United States. Our <a href="/privacy">Privacy Policy</a> lists exactly what we store and for how long.</p></details>
@@ -222,8 +223,8 @@ footer .sp{flex:1}
 <section id="request">
   <div class="wrap split">
     <div>
-      <h2>Request access</h2>
-      <p class="intro">We set up each team by hand, usually within one business day. You'll get your sign-in details by email.</p>
+      <h2>Start your free trial</h2>
+      <p class="intro">Tell us a little about your team. We'll set it up, usually within one business day, and email your sign-in details. Free for 30 days, no credit card.</p>
     </div>
     <form id="rf" novalidate>
       <label>Your name<input name="name" required autocomplete="name" maxlength="120"></label>
@@ -236,7 +237,7 @@ footer .sp{flex:1}
       <div class="hp" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off" aria-label="Website"></div>
       <div class="msg" id="msg" role="status" aria-live="polite"></div>
       <div class="full" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
-        <button class="btn primary" id="send">Send request</button>
+        <button class="btn primary" id="send">Request my free trial</button>
         <p class="note">We'll only use these details to reply to you. See our <a href="/privacy">Privacy Policy</a>.</p>
       </div>
     </form>
@@ -268,11 +269,11 @@ form.addEventListener('submit', async (e) => {
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || 'Your request could not be sent. Please try again, or email privacy@equawire.com.');
     form.reset();
-    show('ok', `Request sent. We'll reply to ${email}, usually within one business day.`);
+    show('ok', `Thanks! We'll set up your trial and email ${email}, usually within one business day.`);
     send.textContent = 'Request sent';
   } catch (err) {
     show('err', err.message);
-    send.disabled = false; send.textContent = 'Send request';
+    send.disabled = false; send.textContent = 'Request my free trial';
   }
 });
 </script>

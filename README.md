@@ -16,7 +16,7 @@ Login, folders, drag-and-drop uploads of files *and whole folders* (straight to 
 3. Copy `.env.example` to `.env` and fill in DB, R2, `APP_URL`, a long random `SESSION_SECRET`, and set `NODE_ENV=production`.
 4. Run `npm install`, then create yourself as admin:
 ```
-npm run create-user -- you@equawire.com "Nazmul" "a-strong-password" --admin
+npm run create-user -- you@equawire.com "Your Name" "a-strong-password" --admin
 ```
 5. Start the app and open your domain. Add teammates from the **Users** tab.
 

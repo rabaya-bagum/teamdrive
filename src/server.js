@@ -250,7 +250,8 @@ app.get('/api/me', auth, wrap(async (req, res) => {
   const [u] = await q(`${USER_SQL} WHERE u.id=?`, [req.session.user.id]);
   if (!u) return req.session.destroy(() => res.status(401).json({ error: 'Not signed in' }));
   const [c] = await q('SELECT COUNT(*) AS n FROM backup_codes WHERE user_id=? AND used_at IS NULL', [u.id]);
-  res.json({ ...req.session.user, team_name: u.team_name, totp_enabled: !!u.totp_enabled, totp_required: requires2fa(u), backup_codes_left: c.n });
+  const [tm] = await q('SELECT trial_ends_at FROM teams WHERE id=?', [u.team_id]);
+  res.json({ ...req.session.user, team_name: u.team_name, trial_ends_at: u.is_admin ? tm.trial_ends_at : null, totp_enabled: !!u.totp_enabled, totp_required: requires2fa(u), backup_codes_left: c.n });
 }));
 
 app.post('/api/me/password', auth, wrap(async (req, res) => {
@@ -838,7 +839,7 @@ app.get('/api/activity.csv', auth, admin, wrap(async (req, res) => {
 
 // ---------- Teams (platform owner) ----------
 app.get('/api/owner/teams', auth, owner, wrap(async (req, res) => {
-  const teams = await q(`SELECT t.id, t.name, t.quota_bytes, t.disabled, t.created_at,
+  const teams = await q(`SELECT t.id, t.name, t.quota_bytes, t.disabled, t.created_at, t.trial_ends_at,
     (SELECT COUNT(*) FROM users u WHERE u.team_id=t.id) AS members,
     (SELECT GROUP_CONCAT(u.email ORDER BY u.id SEPARATOR ', ') FROM users u WHERE u.team_id=t.id AND u.is_admin=1) AS admins
     FROM teams t ORDER BY t.name`);
@@ -856,7 +857,9 @@ app.post('/api/owner/teams', auth, owner, wrap(async (req, res) => {
   let teamId;
   try {
     await conn.beginTransaction();
-    teamId = (await conn.query('INSERT INTO teams (name, quota_bytes) VALUES (?,?)', [name, quotaBytes(req.body.quota_gb)]))[0].insertId;
+    const trialDays = Number(req.body.trial_days) > 0 ? Math.min(Number(req.body.trial_days), 365) : 0;
+    teamId = (await conn.query('INSERT INTO teams (name, quota_bytes, trial_ends_at) VALUES (?,?,?)',
+      [name, quotaBytes(req.body.quota_gb), trialDays ? new Date(Date.now() + trialDays * 864e5) : null]))[0].insertId;
     await conn.query('INSERT INTO users (team_id, email, name, password_hash, is_admin) VALUES (?,?,?,?,1)',
       [teamId, String(admin_email).toLowerCase(), cleanName(admin_name), await bcrypt.hash(String(admin_password), 12)]);
     await conn.commit();
@@ -881,6 +884,13 @@ app.patch('/api/owner/teams/:id', auth, owner, wrap(async (req, res) => {
   if (req.body.quota_gb !== undefined) {
     const qb = quotaBytes(req.body.quota_gb);
     await q('UPDATE teams SET quota_bytes=? WHERE id=?', [qb, id]); changes.push(`storage limit ${qb === null ? 'removed' : `set to ${fmtBytes(qb)}`}`);
+  }
+  if (req.body.trial_end !== undefined) {
+    // 'YYYY-MM-DD' sets/extends the trial (ends at the end of that day); '' ends the trial (now a paying customer)
+    const d = req.body.trial_end ? new Date(`${req.body.trial_end}T23:59:59`) : null;
+    if (d && isNaN(d)) return res.status(400).json({ error: 'Pick a valid trial end date' });
+    await q('UPDATE teams SET trial_ends_at=? WHERE id=?', [d, id]);
+    changes.push(d ? `trial ends ${req.body.trial_end}` : 'trial ended (now a customer)');
   }
   if (req.body.disabled !== undefined) {
     if (id === T(req) && req.body.disabled) return res.status(400).json({ error: "You can't disable your own team" });
@@ -973,6 +983,7 @@ async function migrate() {
     disabled TINYINT(1) NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
   await addColumn('users', 'team_id', 'INT NULL');
   await addColumn('users', 'is_owner', 'TINYINT(1) NOT NULL DEFAULT 0');
+  await addColumn('teams', 'trial_ends_at', 'DATETIME NULL');
   await addColumn('folders', 'team_id', 'INT NULL');
   await addColumn('files', 'team_id', 'INT NULL');
   await addIndex('users', 'idx_users_team', 'team_id');

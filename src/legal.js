@@ -4,7 +4,7 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 
 const cfg = () => ({
   name: process.env.LEGAL_NAME || 'Equawire',
-  operator: process.env.LEGAL_OPERATOR || 'Equawire, operated by Nazmul, Ontario, Canada',
+  operator: process.env.LEGAL_OPERATOR || 'Equawire, Ontario, Canada',
   email: process.env.LEGAL_EMAIL || 'privacy@equawire.com',
   updated: process.env.LEGAL_UPDATED || 'October 30, 2026',
   url: process.env.APP_URL || '',
@@ -87,6 +87,7 @@ function terms() {
 
 <h2>7. Storage limits and fees</h2>
 <ul>
+<li><b>Free trials.</b> We may offer a team a free trial for a set period, usually 30 days. Trials are free and we never charge automatically when one ends. Before it ends we'll contact the team's Admins. If you decide to continue, we'll agree fees with you in writing; if not, the service ends as described in section 10, including the 30 days to download your files.</li>
 <li>Each team may have a storage limit. Uploads that would go over it are refused until space is freed or the limit is raised.</li>
 <li>Fees, billing period and payment terms are those agreed in writing between us and the Customer (for example in a quote, order or invoice). Unless stated otherwise, fees do not include taxes such as HST, which will be added where required.</li>
 <li>If fees are more than 30 days overdue, we may suspend the team after giving notice. Suspension does not delete your Content.</li>
