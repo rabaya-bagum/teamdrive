@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TeamDrive</title>
 <style>
-:root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--mute:#6b7280;--line:#e5e7eb;--acc:#2f6bff;--danger:#d93838;--hover:#f1f3f7}
-@media (prefers-color-scheme:dark){:root{--bg:#111318;--card:#1a1d24;--ink:#e8eaf0;--mute:#9aa1ad;--line:#2a2e38;--acc:#5b8cff;--hover:#22262f}}
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--mute:#6b7280;--line:#e5e7eb;--acc:#2563eb;--danger:#d93838;--hover:#f1f3f7}
+@media (prefers-color-scheme:dark){:root{--bg:#111318;--card:#1a1d24;--ink:#e8eaf0;--mute:#9aa1ad;--line:#2a2e38;--acc:#5b8cff;--hover:#22262f}:root button.p{color:#0f1626}:root button.p:hover{background:#82a6ff}:root .autherr{color:#ffb4b4}.spin{border-color:rgba(15,22,38,.35);border-top-color:#0f1626}}
 *{box-sizing:border-box}body{margin:0;font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
 button,input,select{font:inherit}button{cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 12px;border-radius:8px}
-button:hover{background:var(--hover)}button:disabled{opacity:.45;cursor:not-allowed}button.p{background:var(--acc);border-color:var(--acc);color:#fff}button.d{color:var(--danger)}
+button:hover{background:var(--hover)}button:disabled{opacity:.45;cursor:not-allowed}button.p{background:var(--acc);border-color:var(--acc);color:#fff}button.p:hover{background:#1d4ed8}button.d{color:var(--danger)}
 button.on{border-color:var(--acc);color:var(--acc)}
 input,select{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 10px;border-radius:8px;width:100%}
 input[type=checkbox]{width:auto}
@@ -34,6 +34,37 @@ tr:last-child td{border-bottom:0}td.n{cursor:pointer;word-break:break-word}td.n:
 .acts{white-space:nowrap;text-align:right;width:1%}.acts button{padding:3px 10px}
 #drop{border:2px dashed var(--line);border-radius:10px;padding:12px;text-align:center;color:var(--mute);margin-bottom:12px}
 #drop.on{border-color:var(--acc);color:var(--acc)}
+@font-face{font-family:"Bricolage Grotesque";src:url(/fonts/bricolage-grotesque.woff2) format("woff2");font-weight:200 800;font-display:swap}
+:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.authpage{--paper:#EEF2F6;--ink2:#16213A;--manila:#F3C969;--manila-edge:#D9A93A;--mute2:#5B6475;min-height:100vh;background:var(--paper);display:flex;flex-direction:column;align-items:center;padding:6vh 16px 32px;color:var(--ink2)}
+@media (prefers-color-scheme:dark){.authpage{--paper:#0F1626;--ink2:#E7ECF5;--manila:#C9A24A;--manila-edge:#A5822E;--mute2:#9AA6BC}}
+.authbrand{font:700 22px/1 "Bricolage Grotesque",system-ui,sans-serif;color:var(--ink2);text-decoration:none;margin-bottom:28px;letter-spacing:-.01em}
+.authbrand span{font:400 14px system-ui,sans-serif;color:var(--mute2);margin-left:6px}
+.authbrand:hover{text-decoration:underline}
+.auth{position:relative;width:min(400px,100%);padding-top:30px;filter:drop-shadow(0 14px 26px rgba(22,33,58,.12))}
+.authtab{position:absolute;top:0;left:0;height:34px;padding:6px 16px;background:var(--manila);border:1.5px solid var(--manila-edge);border-bottom:0;border-radius:12px 12px 0 0;font:650 15px "Bricolage Grotesque",system-ui,sans-serif;color:#3B2C08}
+.authbody{background:var(--manila);border:1.5px solid var(--manila-edge);border-radius:0 14px 14px 14px;padding:12px}
+.authbody form{background:var(--card);color:var(--ink);border-radius:9px;padding:26px 24px;display:grid;gap:16px}
+.authbody h1{font:700 26px/1.15 "Bricolage Grotesque",system-ui,sans-serif;letter-spacing:-.015em;margin:0}
+.authbody .lead{margin:-6px 0 0;font-size:15px}
+.fld{display:grid;gap:6px}.fld label{font-weight:600;font-size:15px}
+.fld input{padding:11px 12px;font-size:16px;border-width:1.5px}
+.fld input:focus{border-color:var(--acc);outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 25%,transparent)}
+.fld input[aria-invalid=true]{border-color:var(--danger)}
+.hint{margin:0;font-size:13px;color:var(--mute)}
+#code2fa{font-size:22px;letter-spacing:6px;text-align:center}
+.pwbox{position:relative}.pwbox input{padding-right:48px}
+.eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:40px;height:40px;border:0;background:none;color:var(--mute);display:grid;place-items:center;border-radius:8px;padding:0}
+.eye:hover{color:var(--ink);background:var(--hover)}.eye[aria-pressed=true]{color:var(--acc)}
+.autherr{background:color-mix(in srgb,var(--danger) 10%,var(--card));border:1px solid color-mix(in srgb,var(--danger) 45%,transparent);color:#a61b1b;border-radius:8px;padding:10px 12px;font-size:14px}
+button.big{padding:12px;font-size:16px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:10px;min-height:46px}
+button.big:disabled{opacity:.85;cursor:progress}
+.spin{width:16px;height:16px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:2.4s}}
+.check{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--mute)}
+.authbody form p.m{margin:0;font-size:14px}.authbody a{color:var(--acc)}
+.authlegal{max-width:400px;text-align:center;font-size:13px;color:var(--mute2);margin:22px 0 0}.authlegal a{color:inherit}
 .login{max-width:340px;margin:12vh auto;background:var(--card);padding:24px;border-radius:12px;border:1px solid var(--line);display:grid;gap:10px}
 .err{color:var(--danger);font-size:14px}.prog{font-size:13px;color:var(--mute);margin-bottom:8px}
 dialog{border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);padding:20px;width:min(440px,94vw);max-height:90vh}
@@ -115,40 +146,95 @@ function menu(anchor, items) {
 const closeMenu = () => $('#menu')?.remove();
 
 // ---------- Auth & shell ----------
+// ---------- Sign-in screens ----------
+// Visible labels, errors announced next to the form, a busy state while signing in,
+// show/hide password, and typed values kept after a failed attempt.
+const EYE = '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
+function authShell(tab, inner) {
+  $('#app').innerHTML = `<div class="authpage"><a href="/" class="authbrand">TeamDrive <span>by Equawire</span></a>
+    <div class="auth"><div class="authtab" aria-hidden="true">${esc(tab)}</div><div class="authbody">${inner}</div></div>
+    <p class="authlegal">By signing in you agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</p></div>`;
+}
+function showAuthError(form, msg, field) {
+  const box = $('.autherr', form);
+  box.textContent = msg; box.hidden = !msg;
+  $$('input', form).forEach((i) => i.removeAttribute('aria-invalid'));
+  if (msg && field) { field.setAttribute('aria-invalid', 'true'); field.focus(); field.select?.(); }
+}
+function busy(btn, on, label) {
+  btn.disabled = on; btn.setAttribute('aria-busy', on ? 'true' : 'false');
+  btn.innerHTML = on ? `<span class="spin" aria-hidden="true"></span>${esc(label)}` : esc(btn.dataset.label);
+}
 function loginView(msg = '') {
-  $('#app').innerHTML = `<form class="login" id="lf"><a href="/" class="home" title="TeamDrive home"><b style="font-size:20px">TeamDrive</b> <span class="m">by Equawire</span></a>
-    <input name="email" type="email" placeholder="Email" required autocomplete="username">
-    <input name="password" type="password" placeholder="Password" required autocomplete="current-password">
-    <button class="p">Sign in</button><div class="err">${esc(msg)}</div>
-    <span class="m" id="newHere"></span>
-    <span class="m" style="font-size:12px">By signing in you agree to the <a href="/terms" target="_blank">Terms of Service</a> and <a href="/privacy" target="_blank">Privacy Policy</a>.</span></form>`;
+  authShell('Sign in', `<form id="lf" novalidate>
+    <h1>Sign in to TeamDrive</h1>
+    <div class="autherr" role="alert" ${msg ? '' : 'hidden'}>${esc(msg)}</div>
+    <div class="fld"><label for="em">Email</label>
+      <input id="em" name="email" type="email" required autocomplete="username" inputmode="email" aria-describedby="lfErr"></div>
+    <div class="fld"><label for="pw">Password</label>
+      <div class="pwbox"><input id="pw" name="password" type="password" required autocomplete="current-password">
+      <button type="button" class="eye" id="eye" aria-label="Show password" aria-pressed="false">${EYE}</button></div>
+      <p class="hint">Forgot it? Ask your team's admin to reset it.</p></div>
+    <button class="p big" id="go" data-label="Sign in">Sign in</button>
+    <p class="m" id="newHere"></p>
+  </form>`);
+  const form = $('#lf'), go = $('#go'), em = $('#em'), pw = $('#pw');
+  $('.autherr', form).id = 'lfErr';
+  $('#eye').onclick = () => {
+    const show = pw.type === 'password';
+    pw.type = show ? 'text' : 'password';
+    $('#eye').setAttribute('aria-pressed', String(show));
+    $('#eye').setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    pw.focus();
+  };
   fetch('/api/config').then((r) => r.json()).then((c) => {
     const el = $('#newHere'); if (!el) return;
     el.innerHTML = c.demo ? 'Just looking? <a href="/demo">Try the live demo</a>' + (c.landing ? ' or <a href="/#request">get your own copy</a>.' : '.') : c.landing ? 'New to TeamDrive? <a href="/#request">Get your own copy</a>' : '';
   }).catch(() => {});
-  $('#lf').onsubmit = async (e) => {
+  form.onsubmit = async (e) => {
     e.preventDefault();
-    const f = new FormData(e.target);
+    if (!em.value.trim()) return showAuthError(form, 'Enter your email address.', em);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em.value.trim())) return showAuthError(form, 'Enter a valid email address, like you@company.com.', em);
+    if (!pw.value) return showAuthError(form, 'Enter your password.', pw);
+    showAuthError(form, '');
+    busy(go, true, 'Signing in…');
     try {
-      const r = await api('/api/login', { method: 'POST', body: { email: f.get('email'), password: f.get('password') } });
+      const r = await api('/api/login', { method: 'POST', body: { email: em.value.trim(), password: pw.value } });
       r.needs2fa ? codeView() : afterLogin();
-    } catch (err) { loginView(err.message); }
+    } catch (err) {
+      busy(go, false);
+      showAuthError(form, err.message === 'Wrong email or password' ? 'That email and password don’t match. Check them and try again.' : err.message, pw);
+    }
   };
+  (msg ? pw : em).focus();
 }
 function codeView(msg = '') {
-  $('#app').innerHTML = `<form class="login" id="cf"><b style="font-size:20px">Two-step login</b>
-    <span class="m">Enter the 6-digit code from your authenticator app. Lost your phone? Enter one of your backup codes instead.</span>
-    <input id="code2fa" name="code" required autocomplete="one-time-code" inputmode="numeric" maxlength="9" placeholder="123456" autofocus>
-    <label class="m" style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="trust"> Trust this device for 30 days</label>
-    <button class="p">Verify</button><div class="err">${esc(msg)}</div><a class="m" href="#" id="back">← Use a different account</a></form>`;
+  authShell('Two-step login', `<form id="cf" novalidate>
+    <h1>Enter your code</h1>
+    <p class="m lead">Open your authenticator app and enter the 6-digit code for TeamDrive.</p>
+    <div class="autherr" role="alert" id="cfErr" ${msg ? '' : 'hidden'}>${esc(msg)}</div>
+    <div class="fld"><label for="code2fa">Code</label>
+      <input id="code2fa" name="code" required autocomplete="one-time-code" inputmode="numeric" maxlength="9" aria-describedby="cfErr cfHint">
+      <p class="hint" id="cfHint">Lost your phone? Enter one of your backup codes instead.</p></div>
+    <label class="check"><input type="checkbox" name="trust"> Trust this device for 30 days</label>
+    <button class="p big" id="go" data-label="Verify">Verify</button>
+    <p class="m"><a href="#" id="back">Use a different account</a></p>
+  </form>`);
+  const form = $('#cf'), go = $('#go'), code = $('#code2fa');
   $('#back').onclick = (e) => { e.preventDefault(); loginView(); };
-  $('#cf').onsubmit = async (e) => {
+  form.onsubmit = async (e) => {
     e.preventDefault();
-    const f = new FormData(e.target);
-    try { await api('/api/login/2fa', { method: 'POST', body: { code: f.get('code'), trust: !!f.get('trust') } }); afterLogin(); }
-    catch (err) { err.data?.restart ? loginView(err.message) : codeView(err.message); }
+    if (!code.value.trim()) return showAuthError(form, 'Enter the code from your authenticator app.', code);
+    showAuthError(form, '');
+    busy(go, true, 'Checking…');
+    try { await api('/api/login/2fa', { method: 'POST', body: { code: code.value, trust: !!$('input[name=trust]', form).checked } }); afterLogin(); }
+    catch (err) {
+      if (err.data?.restart) return loginView(err.message);
+      busy(go, false);
+      showAuthError(form, err.message === 'Wrong code' ? 'That code didn’t work. Codes change every 30 seconds, so try the newest one.' : err.message, code);
+    }
   };
-  $('#code2fa').focus();
+  code.focus();
 }
 async function afterLogin() {
   me = await api('/api/me');
