@@ -52,6 +52,15 @@ function terms() {
 <h2>2. The service</h2>
 <p>TeamDrive lets a team upload, organize, preview, version and share files. Each Customer gets its own separate team. Teams cannot see each other's files, members or activity.</p>
 <p>We may improve, change or remove features over time. If we remove a feature that a Customer relies on in a significant way, we will give reasonable notice where we can.</p>
+<p><b>Private copies.</b> We also set up separate, private copies of TeamDrive for organizations, either hosted by us or installed on the organization's own servers. For a private copy, the written agreement or quote we sign with that organization sets out hosting, support, data location and fees. These Terms apply to it only where that agreement doesn't say otherwise.</p>
+<p><b>Public demo.</b> Our website offers a shared demo account so anyone can try TeamDrive. In the demo:</p>
+<ul>
+<li>anything you upload can be seen, downloaded, changed or deleted by other visitors, so <b>don't upload anything confidential, personal or important</b>;</li>
+<li>everything is deleted and replaced with sample content every night, and may be removed sooner;</li>
+<li>share links, account settings and some other features are turned off, and uploads are limited to small files of common types;</li>
+<li>section 5 (acceptable use) applies in full, and we may block anyone who misuses it.</li>
+</ul>
+<p>The demo is provided as is, with no promise that it will be available or that anything in it will be kept.</p>
 
 <h2>3. Accounts and security</h2>
 <ul>
@@ -174,6 +183,8 @@ function privacy() {
 <tr><td>Messages to us</td><td>Emails you send us</td><td>To answer you</td></tr>
 </table></div>
 <p>If you only use a share link, we record the download and your IP address in the sharing team's activity log. We don't ask for your name or email.</p>
+<p><b>Public demo.</b> If you try the shared demo account, we don't ask who you are. Files, folder names and other content you add there can be seen by everyone else using the demo, and are deleted every night. The demo's activity log records what was done but not your IP address. Please don't put personal information in the demo.</p>
+<p><b>Private copies.</b> This policy covers our website, the public demo, and copies of TeamDrive that we host. If your organization runs its own copy of TeamDrive on its own servers, your organization is responsible for the information in it, and its own privacy policy applies.</p>
 <p>We don't collect payment card details through TeamDrive. Billing is handled separately with the Customer.</p>
 
 <h2>3. How we use it</h2>

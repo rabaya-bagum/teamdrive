@@ -120,8 +120,12 @@ function loginView(msg = '') {
     <input name="email" type="email" placeholder="Email" required autocomplete="username">
     <input name="password" type="password" placeholder="Password" required autocomplete="current-password">
     <button class="p">Sign in</button><div class="err">${esc(msg)}</div>
-    <span class="m">New to TeamDrive? <a href="/#request">Start a free 30-day trial</a></span>
+    <span class="m" id="newHere"></span>
     <span class="m" style="font-size:12px">By signing in you agree to the <a href="/terms" target="_blank">Terms of Service</a> and <a href="/privacy" target="_blank">Privacy Policy</a>.</span></form>`;
+  fetch('/api/config').then((r) => r.json()).then((c) => {
+    const el = $('#newHere'); if (!el) return;
+    el.innerHTML = c.demo ? 'Just looking? <a href="/demo">Try the live demo</a>' + (c.landing ? ' or <a href="/#request">get your own copy</a>.' : '.') : c.landing ? 'New to TeamDrive? <a href="/#request">Get your own copy</a>' : '';
+  }).catch(() => {});
   $('#lf').onsubmit = async (e) => {
     e.preventDefault();
     const f = new FormData(e.target);
@@ -232,7 +236,14 @@ const trialLeft = (end) => {
   return Math.round((b - a) / 864e5);
 };
 const trialText = (n) => n < 0 ? 'Trial ended' : n === 0 ? 'Last day of trial' : `Trial · ${n} day${n === 1 ? '' : 's'} left`;
+const demoNote = (what) => notify(`${what} is turned off in the public demo. Get your own private copy to use it.`);
+function demoBar() {
+  if (!me.is_demo) return '';
+  return `<div class="trialbar" role="status">You're in the public demo. Other visitors can see anything you upload, and everything is reset every night. Share links and account settings are turned off.
+    <a href="/#request">Get your own private copy</a></div>`;
+}
 function trialBar() {
+  if (me.is_demo) return demoBar();
   const n = trialLeft(me.trial_ends_at);
   if (n === null) return '';
   const when = new Date(me.trial_ends_at).toLocaleDateString([], { dateStyle: 'long' });
@@ -247,8 +258,8 @@ function shell() {
     <button id="acct">${esc(me.name)} ▾</button></header>${trialBar()}<main id="main"></main>`;
   $$('[data-v]').forEach((b) => b.onclick = () => { view = b.dataset.v; folder = 'root'; $('#search').value = ''; render(); });
   $('#acct').onclick = (e) => { e.stopPropagation(); menu(e.currentTarget, [
-    { label: 'Change password', run: changePassword },
-    { label: 'Two-step login', run: twoStepDialog },
+    !me.is_demo && { label: 'Change password', run: changePassword },
+    !me.is_demo && { label: 'Two-step login', run: twoStepDialog },
     { label: 'Terms of Service', run: () => window.open('/terms', '_blank', 'noopener') },
     { label: 'Privacy Policy', run: () => window.open('/privacy', '_blank', 'noopener') },
     { label: 'Sign out', run: logout }]); };
@@ -303,7 +314,7 @@ function bindTable(folders, files, { trash = false } = {}) {
     menu(b, trash ? trashItems('file', f) : [
       PREVIEWABLE.test(f.mime) && { label: 'Preview', run: () => preview(f) },
       { label: 'Download', run: () => { location.href = `/api/files/${f.id}/download`; } },
-      { label: 'Share link…', run: () => share(f) },
+      { label: 'Share link…', run: () => (me.is_demo ? demoNote('Sharing links') : share(f)) },
       { label: 'Versions…', run: () => versions(f) },
       { label: 'Move…', run: () => moveItem('file', f.id) },
       { label: 'Rename…', run: () => rename('file', f) },
@@ -476,12 +487,12 @@ async function render() {
       await teamsView(m);
     } else if (view === 'users') {
       const us = await api('/api/users');
-      m.innerHTML = `<div class="bar"><b>Team members</b></div>
-        <form id="uf" class="bar"><input name="name" placeholder="Name" required style="max-width:180px"><input name="email" type="email" placeholder="Email" required style="max-width:220px">
+      m.innerHTML = `<div class="bar"><b>Team members</b>${me.is_demo ? '<span class="m">Adding and changing members is turned off in the demo.</span>' : ''}</div>
+        <form id="uf" class="bar" ${me.is_demo ? 'hidden' : ''}><input name="name" placeholder="Name" required style="max-width:180px"><input name="email" type="email" placeholder="Email" required style="max-width:220px">
         <input name="password" type="password" placeholder="Temp password (8+)" required minlength="8" style="max-width:200px" autocomplete="new-password">
         <label class="m"><input type="checkbox" name="is_admin"> Admin</label><button class="p">Add</button></form>
         <table><tr><th>Name</th><th class="hide-s">Email</th><th>Role</th><th class="hide-s">Two-step</th><th></th></tr>${us.map((u) => `<tr><td>${esc(u.name)}</td><td class="m hide-s">${esc(u.email)}</td>
-        <td class="m">${u.is_admin ? 'Admin' : 'Member'}</td><td class="m hide-s">${u.totp_enabled ? 'On' : u.totp_required ? '⚠️ Not set up' : 'Off'}</td><td class="acts">${u.id === me.id ? '' : `<button data-um="${u.id}">⋯</button>`}</td></tr>`).join('')}</table>`;
+        <td class="m">${u.is_admin ? 'Admin' : 'Member'}</td><td class="m hide-s">${u.totp_enabled ? 'On' : u.totp_required ? '⚠️ Not set up' : 'Off'}</td><td class="acts">${u.id === me.id || me.is_demo ? '' : `<button data-um="${u.id}">⋯</button>`}</td></tr>`).join('')}</table>`;
       $('#uf').onsubmit = async (e) => { e.preventDefault(); const f = new FormData(e.target);
         try { await api('/api/users', { method: 'POST', body: { name: f.get('name'), email: f.get('email'), password: f.get('password'), is_admin: !!f.get('is_admin') } }); render(); }
         catch (err) { notify(err.message); } };
@@ -551,10 +562,10 @@ async function activityView(m) {
 async function teamsView(m) {
   const [teams, reqs] = await Promise.all([api('/api/owner/teams'), api('/api/owner/requests')]);
   const open = reqs.filter((r) => !r.handled_at);
-  const reqHtml = reqs.length ? `<div class="bar" style="margin-top:4px"><b>Trial requests</b><span class="m">${open.length ? `${open.length} waiting` : 'All handled'}, from the free-trial form on your home page</span></div>
-    <table style="margin-bottom:28px"><tr><th>From</th><th class="hide-s">Team size</th><th class="hide-s">Message</th><th class="hide-s">Received</th><th></th></tr>
+  const reqHtml = reqs.length ? `<div class="bar" style="margin-top:4px"><b>Requests</b><span class="m">${open.length ? `${open.length} waiting` : 'All handled'}, from the "Get your own copy" form on your home page</span></div>
+    <table style="margin-bottom:28px"><tr><th>From</th><th class="hide-s">Size &amp; hosting</th><th class="hide-s">Message</th><th class="hide-s">Received</th><th></th></tr>
     ${reqs.map((r) => `<tr style="${r.handled_at ? 'opacity:.55' : ''}"><td><b>${esc(r.company)}</b><div class="m">${esc(r.name)} · <a href="mailto:${esc(r.email)}">${esc(r.email)}</a></div></td>
-      <td class="m hide-s">${esc(r.team_size)}</td><td class="m hide-s" style="max-width:320px">${esc(r.message || '—')}</td><td class="m hide-s">${day(r.created_at)}</td>
+      <td class="m hide-s">${esc(r.team_size)}${r.hosting ? `<div>${esc(r.hosting)}</div>` : ''}</td><td class="m hide-s" style="max-width:320px">${esc(r.message || '—')}</td><td class="m hide-s">${day(r.created_at)}</td>
       <td class="acts">${r.handled_at ? `<button data-rq-undo="${r.id}">Reopen</button>` : `<button class="p" data-rq-create="${r.id}">Create team</button> <button data-rq-done="${r.id}">Mark handled</button>`}</td></tr>`).join('')}</table>` : '';
   m.innerHTML = `${reqHtml}<div class="bar"><b>Teams</b><span class="m">Only you (the TeamDrive owner) see this page. You can't open other teams' files.</span><div style="flex:1"></div><button class="p" id="nt">New team</button></div>
     <table><tr><th>Team</th><th class="hide-s">Admins</th><th class="hide-s">Members</th><th>Storage</th><th class="hide-s">Created</th><th></th></tr>

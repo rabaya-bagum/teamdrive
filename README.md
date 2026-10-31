@@ -20,6 +20,18 @@ npm run create-user -- you@equawire.com "Your Name" "a-strong-password" --admin
 ```
 5. Start the app and open your domain. Add teammates from the **Users** tab.
 
+## Two ways this app runs
+
+**1. Your demo/marketing site** (e.g. teamdrive.equaflow.io): set `DEMO_MODE=1` (and leave `LANDING_PAGE` unset).
+Visitors see the landing page, "Try the live demo" signs them straight into a shared demo team ("Northwind Design (demo)") with sample files, and "Get your own copy" sends you a quote request (shown on your Teams page with their hosting preference).
+Demo safeguards: share links, password/two-step changes and member changes are off; uploads are limited to 2 MB and common document/image/media types; the demo team has a 50 MB limit; visitor IP addresses are never stored for demo activity; and everything in the demo team is wiped and re-created every night at `DEMO_RESET_HOUR` (default 3, server time) and on first start. Your own team on the same site is unaffected.
+
+**2. A client's private copy**: a separate install with its own database, R2 bucket (or any S3-compatible storage, e.g. DigitalOcean Spaces in Toronto via `R2_ENDPOINT`), and domain.
+- Set `LANDING_PAGE=0` so `/` opens straight to sign-in (no Equawire marketing page), and do **not** set `DEMO_MODE`.
+- Create their first admin: `npm run create-user -- admin@client.com "Their Name" "temp-password" --admin --team "Client name"`.
+- Set `LEGAL_NAME` / `LEGAL_OPERATOR` / `LEGAL_EMAIL` as agreed with the client, or replace `src/legal.js` with their own terms. Their written agreement with you governs hosting, data location and support.
+- For storage outside Cloudflare, set `R2_ENDPOINT` to the provider's S3 endpoint (e.g. `https://tor1.digitaloceanspaces.com`) and use that provider's keys and bucket name.
+
 ## Home page and access requests
 Signed-out visitors to `/` see a landing page ("TeamDrive by Equawire", `public/landing.html`); signed-in people go straight to their files, and the sign-in form is at `/login`. The *Request access* form saves requests to the `access_requests` table (spam trap + 5 per 15 minutes per network). They appear at the top of the owner's **Teams** page with a one-click *Create team* that pre-fills the form. Requests are deleted after 12 months. No email is sent yet, so check the Teams page (each new request is also printed to the server log).
 

@@ -37,6 +37,7 @@ const previewUrl = (Key, ContentType) =>
 
 const getStream = async (Key) => (await s3.send(new GetObjectCommand({ Bucket, Key }))).Body;
 const head = (Key) => s3.send(new HeadObjectCommand({ Bucket, Key }));
+const put = (Key, Body, ContentType) => s3.send(new PutObjectCommand({ Bucket, Key, Body, ContentType }));
 const remove = (Key) => s3.send(new DeleteObjectCommand({ Bucket, Key }));
 
-module.exports = { uploadUrl, downloadUrl, previewUrl, getStream, head, remove };
+module.exports = { uploadUrl, downloadUrl, previewUrl, getStream, head, put, remove };

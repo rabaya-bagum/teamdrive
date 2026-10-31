@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash VARCHAR(255) NOT NULL,
   is_admin TINYINT(1) NOT NULL DEFAULT 0,
   is_owner TINYINT(1) NOT NULL DEFAULT 0,
+  is_demo TINYINT(1) NOT NULL DEFAULT 0,
   totp_secret VARCHAR(255) NULL,
   totp_enabled TINYINT(1) NOT NULL DEFAULT 0,
   totp_last_step BIGINT NOT NULL DEFAULT 0,
@@ -147,8 +148,15 @@ CREATE TABLE IF NOT EXISTS access_requests (
   email VARCHAR(200) NOT NULL,
   company VARCHAR(160) NOT NULL,
   team_size VARCHAR(40) NOT NULL,
+  hosting VARCHAR(60) NULL,
   message TEXT NULL,
   ip VARCHAR(64) NULL,
   handled_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Small key/value store for app housekeeping (e.g. when the public demo was last reset).
+CREATE TABLE IF NOT EXISTS app_state (
+  k VARCHAR(64) PRIMARY KEY,
+  v TEXT NULL
 );

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TeamDrive by Equawire</title>
-<meta name="description" content="Private file storage and sharing for small teams. Restricted folders, file versions, password-protected links and two-step login. Made in Ontario, Canada.">
+<meta name="description" content="Your own private file drive. TeamDrive is a complete file storage and sharing app, set up just for your company, hosted in Canada or on your own servers. Try the live demo.">
 <link rel="preload" href="/fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin>
 <style>
 @font-face{font-family:"Bricolage Grotesque";src:url(/fonts/bricolage-grotesque.woff2) format("woff2");font-weight:200 800;font-display:swap}
@@ -101,6 +101,15 @@ textarea{min-height:96px;resize:vertical}
 .faq summary::after{content:"+";position:absolute;right:4px;top:12px;font:400 24px/1 var(--body);color:var(--mute)}
 .faq details[open] summary::after{content:"−"}
 .faq details p{margin:0 0 16px;color:var(--mute);max-width:60ch}
+ol.steps{list-style:none;counter-reset:s;margin:0;padding:0;display:grid;gap:0}
+ol.steps li{counter-increment:s;display:grid;grid-template-columns:44px 1fr;column-gap:12px;padding:16px 0;border-bottom:1px solid var(--line)}
+ol.steps li:first-child{padding-top:0}
+ol.steps li::before{content:counter(s);grid-row:span 2;width:34px;height:34px;border-radius:50%;background:var(--manila);color:#3B2C08;font:700 16px/34px var(--display);text-align:center}
+ol.steps b{font-weight:600}ol.steps span{color:var(--mute)}
+dl.plans{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 40px;margin:0}
+dl.plans dt{font:650 20px/1.3 var(--display);margin-bottom:6px}
+dl.plans dd{margin:0;color:var(--mute)}dl.plans dd.amount{color:var(--ink);font-weight:600;margin-bottom:6px}
+@media (max-width:600px){dl.plans{grid-template-columns:1fr}}
 footer{padding:32px 0 48px;border-top:1px solid var(--line);color:var(--mute);font-size:14px;display:flex;gap:20px;flex-wrap:wrap}
 footer .sp{flex:1}
 
@@ -133,11 +142,12 @@ footer .sp{flex:1}
   <header class="hero">
     <div>
       <h1>Your team's files, in one place you control.</h1>
-      <p class="lede">TeamDrive keeps client work organized, private and easy to share, without handing your files to an ad company.</p>
+      <p class="lede">TeamDrive is a complete file storage and sharing app. We set up a private copy just for your company, hosted in Canada or on your own servers.</p>
       <div class="ctas">
-        <a class="btn primary" href="#request">Start a free 30-day trial</a>
+        <a class="btn primary" href="/demo">Try the live demo</a>
+        <a class="btn quiet" href="#request">Get your own copy</a>
       </div>
-      <p class="trust">Free for 30 days, no credit card. We set up your team within one business day.</p>
+      <p class="trust">No sign-up needed for the demo. Your own copy is ready within a few business days.</p>
       <p class="trust small">Built for agencies and small firms. Canadian-owned. Your files are never used for ads or AI training.</p>
     </div>
 
@@ -182,27 +192,39 @@ footer .sp{flex:1}
 <section id="privacy">
   <div class="wrap split">
     <div>
-      <h2>Private by design</h2>
-      <p class="intro" style="margin-bottom:0">Run by Equawire in Ontario, Canada. Here's exactly what that means for your files. The details are in our <a href="/privacy">Privacy Policy</a>.</p>
+      <h2>Your copy, your data</h2>
+      <p class="intro" style="margin-bottom:0">Your TeamDrive isn't shared with other companies. It's your own installation, running where you choose.</p>
     </div>
     <ul class="facts">
-      <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>No ads, no tracking, no AI training</b><span>We don't sell data, use analytics cookies, or train AI on your files.</span></div></li>
-      <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>Your team is walled off</b><span>Each company gets its own separate space. Other teams can't see anything in yours.</span></div></li>
+      <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>Only your company on it</b><span>Your copy has its own address, database and file storage. No other customer's data lives alongside yours.</span></div></li>
+      <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>You choose where it runs</b><span>We can host it for you in Canada (Toronto), or install it on your own server or cloud account so it never leaves your hands.</span></div></li>
+      <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>No ads, no tracking, no AI training</b><span>TeamDrive has no advertising, analytics or tracking built in, and your files are never used to train AI.</span></div></li>
       <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>Two-step login, required for admins</b><span>Admins always sign in with a code from an authenticator app. Everyone else can turn it on in one minute, with backup codes in case a phone is lost.</span></div></li>
-      <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>Encrypted in transit and at rest</b><span>Files travel over HTTPS and are stored encrypted by Cloudflare, an established cloud storage provider.</span></div></li>
-      <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>You own your files</b><span>If you leave, you get 30 days to download everything before it's deleted.</span></div></li>
-      <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>Clear about where data lives</b><span>Equawire is Canadian-owned, but TeamDrive runs in the United States: the app on servers in North Carolina, and your files in Cloudflare's Eastern North America region. If your files must stay in Canada, tell us before you start.</span></div></li>
+      <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>Encrypted in transit and at rest</b><span>Files travel over HTTPS and are stored encrypted by the storage provider your copy uses.</span></div></li>
+      <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" d="M4 12.5l5 5L20 6.5"/></svg><div><b>You own it all</b><span>If you stop using our hosting, you can download everything or we'll move your copy to your own server.</span></div></li>
     </ul>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap split">
+    <div><h2>How it works</h2></div>
+    <ol class="steps">
+      <li><b>Try the demo</b><span>Click around a real TeamDrive with sample files. No sign-up needed.</span></li>
+      <li><b>Tell us what you need</b><span>How many people, roughly how much you store, and where you'd like it to run. We'll reply with a quote.</span></li>
+      <li><b>We set up your copy</b><span>On its own address, such as files.yourcompany.com, with your admins and two-step login ready.</span></li>
+      <li><b>Your team moves in</b><span>Drag your folders over from Google Drive or Dropbox. We'll help if you need it.</span></li>
+    </ol>
   </div>
 </section>
 
 <section id="pricing">
   <div class="wrap split">
-    <div><h2>Pricing</h2></div>
-    <div>
-      <p class="price">CAD 5–8 per person per month, after a free 30-day trial.</p>
-      <p class="intro" style="margin-bottom:0">Where you land in that range depends on how much storage your team needs. We'll confirm your exact price before your trial ends, so you know the cost before you commit. No credit card for the trial, and if it isn't right for you, there's nothing to cancel.</p>
-    </div>
+    <div><h2>Pricing</h2><p class="intro" style="margin-bottom:0">Final prices depend on your team size, storage and setup needs. We'll send you an exact quote.</p></div>
+    <dl class="plans">
+      <div><dt>We host it for you</dt><dd class="amount">Setup from CAD 500, then from CAD 49/month</dd><dd>Hosting in Canada, updates and support. Storage sized for your team.</dd></div>
+      <div><dt>On your own server</dt><dd class="amount">Setup from CAD 500</dd><dd>We install it in your cloud or hosting account and hand it over. Optional support from CAD 49/month.</dd></div>
+    </dl>
   </div>
 </section>
 
@@ -210,13 +232,13 @@ footer .sp{flex:1}
   <div class="wrap split">
     <div><h2>Questions</h2></div>
     <div class="faq">
-      <details><summary>What happens when the free trial ends?</summary><p>Nothing is charged automatically. A few days before it ends, we'll confirm your price, typically CAD 5–8 per person per month. If you'd like to keep going, we agree it with you and carry on with everything as it is. If not, you have 30 days to download your files, and then they're deleted.</p></details>
-      <details><summary>How much can we store?</summary><p>Each team has a storage limit that we agree with you, and you can see how much you've used at the top of TeamDrive. Single files can be up to 2 GB. If you need more room, ask and we'll raise the limit.</p></details>
-      <details><summary>Can we move over from Google Drive or Dropbox?</summary><p>Yes. Download your folders from Google Drive (or use Google Takeout) or Dropbox, then drag the folders into TeamDrive. The folder structure is kept as it is.</p></details>
-      <details><summary>Where are our files stored?</summary><p>In the United States. The app and its database run on Hostinger servers in North Carolina, and files are stored by Cloudflare in its Eastern North America region. Everything is encrypted in transit, and files are encrypted at rest. Our <a href="/privacy">Privacy Policy</a> lists exactly what we store and for how long.</p></details>
-      <details><summary>What happens to our share links if we leave?</summary><p>They stop working when your team is closed. You get 30 days to download everything first, and then your files are deleted.</p></details>
+      <details><summary>How is the demo different from our own copy?</summary><p>The demo is one shared account that anyone can try. Other visitors can see what you upload, files are limited to 2 MB, share links and account settings are off, and everything is reset every night. Your own copy is private to your company, with every feature turned on.</p></details>
+      <details><summary>Where is our data stored?</summary><p>Wherever your copy runs. If we host it, we keep it in Canada (Toronto). If it runs on your own server, it stays wherever that server is. The public demo runs in the United States, on servers in North Carolina with files in Cloudflare's Eastern North America region.</p></details>
+      <details><summary>Who can see our files?</summary><p>Only your team. If we host your copy, we look at it only to keep it running, when you ask us to help, or if the law requires it. If it runs on your own server, only you have access.</p></details>
+      <details><summary>Can we move over from Google Drive or Dropbox?</summary><p>Yes. Download your folders from Google Drive (or use Google Takeout) or Dropbox, then drag the folders into TeamDrive. The folder structure is kept as it is, and we can help with the move.</p></details>
+      <details><summary>How much can we store?</summary><p>As much as you need. Storage is sized for your team when we set up your copy, and single files can be up to 2 GB.</p></details>
+      <details><summary>What if we stop using your hosting?</summary><p>You can download everything, or we can move your copy to your own server so your team carries on as before.</p></details>
       <details><summary>Do people need to install anything?</summary><p>No. TeamDrive runs in any modern browser on computers, tablets and phones. Two-step login uses a free authenticator app such as Google Authenticator.</p></details>
-      <details><summary>Can people outside our team get files?</summary><p>Only through a share link you create. You can add a password and an expiry date, see how many times it was downloaded, and turn it off at any time.</p></details>
     </div>
   </div>
 </section>
@@ -224,8 +246,8 @@ footer .sp{flex:1}
 <section id="request">
   <div class="wrap split">
     <div>
-      <h2>Start your free trial</h2>
-      <p class="intro">Tell us a little about your team. We'll set it up, usually within one business day, and email your sign-in details. Free for 30 days, no credit card.</p>
+      <h2>Get your own copy</h2>
+      <p class="intro">Tell us about your team and where you'd like TeamDrive to run. We'll reply with a quote, usually within one business day.</p>
     </div>
     <form id="rf" novalidate>
       <label>Your name<input name="name" required autocomplete="name" maxlength="120"></label>
@@ -234,11 +256,14 @@ footer .sp{flex:1}
       <label>Team size<select name="team_size" required>
         <option value="">Choose…</option><option>1–5 people</option><option>6–15 people</option><option>16–50 people</option><option>50+ (let's talk)</option>
       </select></label>
+      <label class="full">Where should it run?<select name="hosting" required>
+        <option value="">Choose…</option><option>Host it for us in Canada</option><option>On our own server or cloud</option><option>Not sure yet</option>
+      </select></label>
       <label class="full"><span>Anything we should know? <span class="opt">(optional)</span></span><textarea name="message" maxlength="2000" placeholder="How much you store, what you share, when you'd like to start…"></textarea></label>
       <div class="hp" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off" aria-label="Website"></div>
       <div class="msg" id="msg" role="status" aria-live="polite"></div>
       <div class="full" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
-        <button class="btn primary" id="send">Request my free trial</button>
+        <button class="btn primary" id="send">Request a quote</button>
         <p class="note">We'll only use these details to reply to you. See our <a href="/privacy">Privacy Policy</a>.</p>
       </div>
     </form>
@@ -270,11 +295,11 @@ form.addEventListener('submit', async (e) => {
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || 'Your request could not be sent. Please try again, or email privacy@equawire.com.');
     form.reset();
-    show('ok', `Thanks! We'll set up your trial and email ${email}, usually within one business day.`);
+    show('ok', `Thanks! We'll reply to ${email} with a quote, usually within one business day.`);
     send.textContent = 'Request sent';
   } catch (err) {
     show('err', err.message);
-    send.disabled = false; send.textContent = 'Request my free trial';
+    send.disabled = false; send.textContent = 'Request a quote';
   }
 });
 </script>

@@ -11,6 +11,9 @@ const { pool, q } = require('./db');
 const r2 = require('./r2');
 const totp = require('./totp');
 const legal = require('./legal');
+const demo = require('./demo');
+// Show the Equawire marketing page at / for signed-out visitors. Set LANDING_PAGE=0 on clients' private copies.
+const LANDING = !['0', 'false', 'no'].includes(String(process.env.LANDING_PAGE ?? '1').toLowerCase());
 
 const app = express();
 app.set('trust proxy', 1);
@@ -25,6 +28,8 @@ app.use(
     cookie: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 7 * 864e5 },
   })
 );
+
+app.use(demo.guard);
 
 const MAX_BYTES = Number(process.env.MAX_UPLOAD_MB || 2048) * 1024 * 1024;
 const MAX_ZIP_BYTES = Number(process.env.MAX_ZIP_MB || 5120) * 1024 * 1024;
@@ -77,7 +82,8 @@ async function log(req, action, target = {}, detail = '', who = {}) {
     if (!teamId) return;
     await q('INSERT INTO activity_log (team_id, user_id, action, target_type, target_id, target_name, detail, ip) VALUES (?,?,?,?,?,?,?,?)',
       [teamId, who.userId !== undefined ? who.userId : u?.id ?? null, action, target.type || null, target.id || null,
-        target.name ? String(target.name).slice(0, 255) : null, detail ? String(detail).slice(0, 500) : null, String(req.ip || '').slice(0, 64)]);
+        target.name ? String(target.name).slice(0, 255) : null, detail ? String(detail).slice(0, 500) : null,
+        u?.is_demo ? null : String(req.ip || '').slice(0, 64)]); // demo visitors can see the log, so never store their IPs
   } catch (e) { console.error('activity log failed:', e.message); }
 }
 
@@ -147,8 +153,8 @@ const cookieOf = (req, name) => {
   return null;
 };
 const USER_SQL = 'SELECT u.*, t.name AS team_name, t.disabled AS team_disabled FROM users u JOIN teams t ON t.id=u.team_id';
-const sessionUser = (u) => ({ v: SESSION_V, id: u.id, name: u.name, email: u.email, is_admin: !!u.is_admin, is_owner: !!u.is_owner,
-  team_id: u.team_id, team_name: u.team_name, must_setup_2fa: requires2fa(u) && !u.totp_enabled });
+const sessionUser = (u) => ({ v: SESSION_V, id: u.id, name: u.name, email: u.email, is_admin: !!u.is_admin, is_owner: !!u.is_owner, is_demo: !!u.is_demo,
+  team_id: u.team_id, team_name: u.team_name, must_setup_2fa: requires2fa(u) && !u.totp_enabled && !u.is_demo });
 function startSession(req, res, u) {
   req.session.regenerate((err) => {
     if (err) return res.status(500).json({ error: 'Server error' });
@@ -531,6 +537,7 @@ app.post('/api/files/init', auth, wrap(async (req, res) => {
   const folder = idOrNull(req.body.folder_id);
   if (!name) return res.status(400).json({ error: 'File name required' });
   if (size > MAX_BYTES) return res.status(400).json({ error: `File exceeds ${process.env.MAX_UPLOAD_MB || 2048} MB limit` });
+  if (req.session.user.is_demo) demo.checkUpload(name, size);
   await requireFolder(req, folder);
   const [t] = await q('SELECT quota_bytes FROM teams WHERE id=?', [T(req)]);
   if (t.quota_bytes !== null) {
@@ -908,10 +915,10 @@ app.post('/api/access-requests', wrap(async (req, res) => {
   addFail(key);
   if (req.body.website) return res.json({ ok: true }); // spam trap: humans never fill this hidden field
   const f = (k, max) => String(req.body[k] || '').trim().slice(0, max);
-  const name = f('name', 120), email = f('email', 200).toLowerCase(), company = f('company', 160), size = f('team_size', 40), message = f('message', 2000);
+  const name = f('name', 120), email = f('email', 200).toLowerCase(), company = f('company', 160), size = f('team_size', 40), hosting = f('hosting', 60), message = f('message', 2000);
   if (!name || !company || !size) return res.status(400).json({ error: 'Please fill in your name, company and team size.' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Please enter a valid work email, like you@yourcompany.com.' });
-  await q('INSERT INTO access_requests (name, email, company, team_size, message, ip) VALUES (?,?,?,?,?,?)', [name, email, company, size, message || null, String(req.ip || '').slice(0, 64)]);
+  await q('INSERT INTO access_requests (name, email, company, team_size, hosting, message, ip) VALUES (?,?,?,?,?,?,?)', [name, email, company, size, hosting || null, message || null, String(req.ip || '').slice(0, 64)]);
   console.log(`New access request from ${company} (${email})`);
   res.json({ ok: true });
 }));
@@ -923,11 +930,26 @@ app.patch('/api/owner/requests/:id', auth, owner, wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// Public settings the pages need before sign-in.
+app.get('/api/config', (req, res) => res.json({ demo: demo.ENABLED, landing: LANDING, demo_reset_hour: demo.RESET_HOUR }));
+// One click into the shared demo account (only on the demo site).
+app.get('/demo', wrap(async (req, res) => {
+  if (!demo.ENABLED) return res.redirect('/');
+  let u = await demo.demoUser();
+  if (!u) { await demo.reset(); u = await demo.demoUser(); }
+  if (!u) return res.status(503).send('The demo is being reset. Please try again in a minute.');
+  req.session.regenerate((err) => {
+    if (err) return res.status(500).send('Server error');
+    req.session.user = sessionUser(u);
+    res.redirect('/');
+  });
+}));
+
 app.get('/terms', (req, res) => res.send(legal.terms()));
 app.get('/privacy', (req, res) => res.send(legal.privacy()));
 // Signed-out visitors see the landing page; signed-in people go straight to their files.
 const PUBLIC = path.join(__dirname, '..', 'public');
-app.get('/', (req, res) => res.sendFile(path.join(PUBLIC, req.session.user?.v === SESSION_V ? 'index.html' : 'landing.html')));
+app.get('/', (req, res) => res.sendFile(path.join(PUBLIC, req.session.user?.v === SESSION_V || !LANDING ? 'index.html' : 'landing.html')));
 app.get('/login', (req, res) => res.sendFile(path.join(PUBLIC, 'index.html')));
 app.use(express.static(PUBLIC, { index: false }));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'index.html')));
@@ -984,6 +1006,8 @@ async function migrate() {
   await addColumn('users', 'team_id', 'INT NULL');
   await addColumn('users', 'is_owner', 'TINYINT(1) NOT NULL DEFAULT 0');
   await addColumn('teams', 'trial_ends_at', 'DATETIME NULL');
+  await addColumn('users', 'is_demo', 'TINYINT(1) NOT NULL DEFAULT 0');
+  await q('CREATE TABLE IF NOT EXISTS app_state (k VARCHAR(64) PRIMARY KEY, v TEXT NULL)');
   await addColumn('folders', 'team_id', 'INT NULL');
   await addColumn('files', 'team_id', 'INT NULL');
   await addIndex('users', 'idx_users_team', 'team_id');
@@ -1014,6 +1038,7 @@ async function migrate() {
     id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(120) NOT NULL, email VARCHAR(200) NOT NULL, company VARCHAR(160) NOT NULL,
     team_size VARCHAR(40) NOT NULL, message TEXT NULL, ip VARCHAR(64) NULL, handled_at DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
+  await addColumn('access_requests', 'hosting', 'VARCHAR(60) NULL');
 }
 
 migrate()
@@ -1021,5 +1046,6 @@ migrate()
     app.listen(process.env.PORT || 3000, () => console.log(`TeamDrive on :${process.env.PORT || 3000}`));
     runPurge();
     setInterval(runPurge, 60 * 60 * 1000).unref();
+    demo.schedule();
   })
   .catch((e) => { console.error('Startup failed:', e); process.exit(1); });
