@@ -19,16 +19,26 @@
   --blue:#6B93FF; --blue-ink:#8FAEFF; --manila:#C9A24A; --manila-edge:#A5822E;
 }}
 *{box-sizing:border-box}
-html{scroll-behavior:smooth}
+html{scroll-behavior:smooth;scroll-padding-top:84px}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
 body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.6 var(--body);-webkit-font-smoothing:antialiased}
 a{color:var(--blue-ink)}
 :focus-visible{outline:3px solid var(--blue);outline-offset:2px;border-radius:4px}
 .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
 
+/* Skip link, sticky top bar */
+.skip{position:absolute;left:12px;top:-60px;z-index:20;background:var(--blue);color:#fff;padding:10px 16px;border-radius:8px;font-weight:600;text-decoration:none}
+.skip:focus{top:12px}
+.topbar{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--paper) 92%,transparent);backdrop-filter:saturate(1.4) blur(8px);-webkit-backdrop-filter:saturate(1.4) blur(8px);border-bottom:1px solid transparent;transition:border-color .2s}
+.topbar.scrolled{border-bottom-color:var(--line)}
+.topbar nav{padding:14px 0}
+.btn.sm{padding:10px 16px;font-size:15px}
+.short{display:none}.signin-mobile{display:none;margin:14px 0 0;font-size:15px}.signin-mobile a{display:inline-block;padding:3px 0;font-weight:600}
+main:focus{outline:none}
+@media (max-width:350px){.brand span{display:none!important}}
 /* Nav */
-nav{display:flex;align-items:center;gap:16px;padding:20px 0}
-.brand{font:700 21px/1 var(--display);color:var(--ink);text-decoration:none;letter-spacing:-.01em}
+nav{display:flex;align-items:center;gap:10px;padding:20px 0}
+.brand{font:700 21px/1 var(--display);color:var(--ink);text-decoration:none;letter-spacing:-.01em;padding:10px 0}
 .brand span{font:400 14px var(--body);color:var(--mute);margin-left:6px;letter-spacing:0}
 nav .sp{flex:1}
 .btn{display:inline-block;font:600 16px/1 var(--body);padding:13px 20px;border-radius:10px;text-decoration:none;border:1.5px solid transparent;cursor:pointer}
@@ -38,7 +48,7 @@ nav .sp{flex:1}
 .btn.quiet:hover{border-color:var(--ink)}
 
 /* Hero */
-.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:56px;align-items:center;padding:48px 0 88px}
+.hero{border-top:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:56px;align-items:center;padding:48px 0 88px}
 h1{font:750 clamp(40px,5.6vw,68px)/1.02 var(--display);letter-spacing:-.025em;margin:0 0 22px;max-width:12ch}
 .lede{font-size:19px;color:var(--mute);max-width:34ch;margin:0 0 30px}
 .ctas{display:flex;gap:12px;flex-wrap:wrap}
@@ -53,7 +63,9 @@ h1{font:750 clamp(40px,5.6vw,68px)/1.02 var(--display);letter-spacing:-.025em;ma
 .crumbs b{color:var(--ink);font-weight:600}
 .row{display:grid;grid-template-columns:1fr auto auto;gap:14px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--line)}
 .row:last-child{border-bottom:0}
-.row .n{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .n{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:8px}
+.ic{width:18px;height:18px;flex:none}.ic.sm{width:12px;height:12px;margin-right:4px;vertical-align:-1px}
+.pill.lock{display:inline-flex;align-items:center}
 .row .w{color:var(--mute);font-size:13px}
 .pill{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:2px 9px;color:var(--mute);white-space:nowrap}
 .pill.lock{border-color:var(--manila-edge);color:#7A5A12;background:#FDF4DC}
@@ -87,6 +99,9 @@ input,select,textarea{font:inherit;font-weight:400;padding:12px 14px;border:1.5p
 input:focus,select:focus,textarea:focus{border-color:var(--blue);outline:none}
 textarea{min-height:96px;resize:vertical}
 .full{grid-column:1/-1}
+.ferr{color:#a61b1b;font-weight:500;font-size:14px}
+[aria-invalid=true]{border-color:#c62828}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .ferr{color:#ffb4b4}:root:not([data-theme="light"]) [aria-invalid=true]{border-color:#ff8a8a}}
 .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 .note{font-size:14px;color:var(--mute);margin:0}
 .msg{grid-column:1/-1;padding:14px 16px;border-radius:10px;display:none}
@@ -110,7 +125,9 @@ dl.plans{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 40p
 dl.plans dt{font:650 20px/1.3 var(--display);margin-bottom:6px}
 dl.plans dd{margin:0;color:var(--mute)}dl.plans dd.amount{color:var(--ink);font-weight:600;margin-bottom:6px}
 @media (max-width:600px){dl.plans{grid-template-columns:1fr}}
-footer{padding:32px 0 48px;border-top:1px solid var(--line);color:var(--mute);font-size:14px;display:flex;gap:20px;flex-wrap:wrap}
+footer{padding:32px 0 48px;border-top:1px solid var(--line);color:var(--mute);font-size:14px;display:flex;gap:8px 20px;flex-wrap:wrap;align-items:center}
+footer a{display:inline-block;padding:6px 0;min-height:24px}
+.note a{display:inline-block;padding:3px 0}
 footer .sp{flex:1}
 
 @media (max-width:880px){
@@ -126,27 +143,43 @@ footer .sp{flex:1}
   .row{grid-template-columns:1fr auto}.row .w{display:none}
   .folder .tab{width:62%}
   section{padding:56px 0}
-  .brand{font-size:19px}.brand span{font-size:13px}
+  .brand{font-size:19px}.brand span{font-size:13px;margin-left:5px}
+  .signin-top{display:none}.signin-mobile{display:block}
+  .long{display:none}.short{display:inline}
+  .topbar nav{padding:10px 0}.btn.sm{padding:10px 12px;font-size:14px}
   .crumbs .path{display:none}
 }
 </style>
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2.2h8.4A1.5 1.5 0 0 1 21 8.7v9.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z" fill="#F3C969" stroke="#B88A22" stroke-width="1.2"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M6.5 3h7.8L19 7.7v12.8a.5.5 0 0 1-.5.5h-12a.5.5 0 0 1-.5-.5V3.5a.5.5 0 0 1 .5-.5z" fill="#fff" stroke="#7B8496" stroke-width="1.3"/><path d="M14 3v5h5" fill="none" stroke="#7B8496" stroke-width="1.3"/><path d="M9 12.5h6M9 15.5h6" stroke="#AEB5C2" stroke-width="1.3"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="1.5" fill="#fff" stroke="#7B8496" stroke-width="1.3"/><circle cx="9" cy="10" r="1.6" fill="#F3C969"/><path d="M4.5 17.5l5-5 3.5 3.5 2.5-2.5 4 4" fill="none" stroke="#2563EB" stroke-width="1.4"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2" fill="currentColor"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+</svg>
+<header class="topbar" id="top">
+  <div class="wrap">
+    <nav aria-label="Main">
+      <a class="brand" href="/">TeamDrive<span>by Equawire</span></a>
+      <div class="sp"></div>
+      <a class="btn quiet sm signin-top" href="/login">Sign in</a>
+      <a class="btn primary sm" href="/demo"><span class="long">Try the live demo</span><span class="short">Try the demo</span></a>
+    </nav>
+  </div>
+</header>
+<main id="main" tabindex="-1">
 <div class="wrap">
-  <nav aria-label="Main">
-    <a class="brand" href="/">TeamDrive<span>by Equawire</span></a>
-    <div class="sp"></div>
-    <a class="btn quiet" href="/login">Sign in</a>
-  </nav>
-
-  <header class="hero">
+  <section class="hero" aria-labelledby="hero-title">
     <div>
-      <h1>Your team's files, in one place you control.</h1>
+      <h1 id="hero-title">Your team's files, in one place you control.</h1>
       <p class="lede">TeamDrive is a complete file storage and sharing app. We set up a private copy just for your company, hosted in Canada or on your own servers.</p>
       <div class="ctas">
         <a class="btn primary" href="/demo">Try the live demo</a>
         <a class="btn quiet" href="#request">Get your own copy</a>
       </div>
+      <p class="signin-mobile">Already have TeamDrive? <a href="/login">Sign in</a></p>
       <p class="trust">No sign-up needed for the demo. Your own copy is ready within a few business days.</p>
       <p class="trust small">Built for agencies and small firms. Canadian-owned. Your files are never used for ads or AI training.</p>
     </div>
@@ -155,12 +188,12 @@ footer .sp{flex:1}
       <div class="tab" aria-hidden="true">Clients</div>
       <div class="body" aria-hidden="true">
         <div class="sheet">
-          <div class="crumbs"><span class="path">My team / Clients /</span> <b>Northwind</b> <span class="pill lock">🔒 Restricted</span></div>
-          <div class="row"><span class="n">📁 Brand assets</span><span class="w">Priya</span><span class="w">Oct 28</span></div>
-          <div class="row"><span class="n">📄 Contract.pdf</span><span class="pill">3 versions</span><span class="w">Oct 29</span></div>
-          <div class="row"><span class="n">📄 Q4 campaign plan.docx</span><span class="w">Marcus</span><span class="w">Oct 30</span></div>
-          <div class="row"><span class="n">🖼️ Hero photo final.jpg</span><span class="w">Priya</span><span class="w">Oct 30</span></div>
-          <div class="row"><span class="n">📄 Invoice 1042.pdf</span><span class="w">You</span><span class="w">Oct 30</span></div>
+          <div class="crumbs"><span class="path">My team / Clients /</span> <b>Northwind</b> <span class="pill lock"><svg class="ic sm" aria-hidden="true"><use href="#i-lock"/></svg>Restricted</span></div>
+          <div class="row"><span class="n"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Brand assets</span><span class="w">Priya</span><span class="w">Oct 28</span></div>
+          <div class="row"><span class="n"><svg class="ic" aria-hidden="true"><use href="#i-file"/></svg>Contract.pdf</span><span class="pill">3 versions</span><span class="w">Oct 29</span></div>
+          <div class="row"><span class="n"><svg class="ic" aria-hidden="true"><use href="#i-file"/></svg>Q4 campaign plan.docx</span><span class="w">Marcus</span><span class="w">Oct 30</span></div>
+          <div class="row"><span class="n"><svg class="ic" aria-hidden="true"><use href="#i-image"/></svg>Hero photo final.jpg</span><span class="w">Priya</span><span class="w">Oct 30</span></div>
+          <div class="row"><span class="n"><svg class="ic" aria-hidden="true"><use href="#i-file"/></svg>Invoice 1042.pdf</span><span class="w">You</span><span class="w">Oct 30</span></div>
         </div>
         <div class="link-pop">
           <b>Link created for Contract.pdf</b>
@@ -169,7 +202,7 @@ footer .sp{flex:1}
         </div>
       </div>
     </div>
-  </header>
+  </section>
 </div>
 
 <section id="features">
@@ -250,15 +283,15 @@ footer .sp{flex:1}
       <p class="intro">Tell us about your team and where you'd like TeamDrive to run. We'll reply with a quote, usually within one business day.</p>
     </div>
     <form id="rf" novalidate>
-      <label>Your name<input name="name" required autocomplete="name" maxlength="120"></label>
-      <label>Work email<input name="email" type="email" required autocomplete="email" maxlength="200"></label>
-      <label>Company<input name="company" required autocomplete="organization" maxlength="160"></label>
-      <label>Team size<select name="team_size" required>
+      <label>Your name<input name="name" required autocomplete="name" maxlength="120" aria-describedby="e-name"><span class="ferr" id="e-name" hidden></span></label>
+      <label>Work email<input name="email" type="email" required autocomplete="email" maxlength="200" aria-describedby="e-email"><span class="ferr" id="e-email" hidden></span></label>
+      <label>Company<input name="company" required autocomplete="organization" maxlength="160" aria-describedby="e-company"><span class="ferr" id="e-company" hidden></span></label>
+      <label>Team size<select name="team_size" required aria-describedby="e-team_size">
         <option value="">Choose…</option><option>1–5 people</option><option>6–15 people</option><option>16–50 people</option><option>50+ (let's talk)</option>
-      </select></label>
-      <label class="full">Where should it run?<select name="hosting" required>
+      </select><span class="ferr" id="e-team_size" hidden></span></label>
+      <label class="full">Where should it run?<select name="hosting" required aria-describedby="e-hosting">
         <option value="">Choose…</option><option>Host it for us in Canada</option><option>On our own server or cloud</option><option>Not sure yet</option>
-      </select></label>
+      </select><span class="ferr" id="e-hosting" hidden></span></label>
       <label class="full"><span>Anything we should know? <span class="opt">(optional)</span></span><textarea name="message" maxlength="2000" placeholder="How much you store, what you share, when you'd like to start…"></textarea></label>
       <div class="hp" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off" aria-label="Website"></div>
       <div class="msg" id="msg" role="status" aria-live="polite"></div>
@@ -270,6 +303,7 @@ footer .sp{flex:1}
   </div>
 </section>
 
+</main>
 <div class="wrap">
   <footer>
     <span>© <span id="yr"></span> Equawire. Canadian-owned, based in Ontario.</span>
@@ -280,14 +314,37 @@ footer .sp{flex:1}
 
 <script>
 document.getElementById('yr').textContent = new Date().getFullYear();
+const bar = document.querySelector('.topbar');
+addEventListener('scroll', () => bar.classList.toggle('scrolled', scrollY > 8), { passive: true });
 const form = document.getElementById('rf'), msg = document.getElementById('msg'), send = document.getElementById('send');
 const show = (cls, text) => { msg.className = 'msg ' + cls; msg.textContent = text; };
+// Field checks: run when a field is left (after the first try) and on submit.
+const RULES = {
+  name: (v) => !v.trim() && 'Enter your name.',
+  email: (v) => (!v.trim() && 'Enter your work email.') || (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) && 'Enter a valid email, like you@yourcompany.com.'),
+  company: (v) => !v.trim() && 'Enter your company name.',
+  team_size: (v) => !v && 'Choose your team size.',
+  hosting: (v) => !v && 'Choose where TeamDrive should run.',
+};
+function check(el) {
+  const msg = RULES[el.name] ? RULES[el.name](el.value) || '' : '';
+  const out = document.getElementById('e-' + el.name);
+  if (out) { out.textContent = msg; out.hidden = !msg; }
+  if (msg) el.setAttribute('aria-invalid', 'true'); else el.removeAttribute('aria-invalid');
+  return !msg;
+}
+let tried = false;
+Object.keys(RULES).forEach((n) => {
+  const el = form.elements[n];
+  el.addEventListener('blur', () => { if (tried || el.value) check(el); });
+  el.addEventListener('input', () => { if (el.getAttribute('aria-invalid')) check(el); });
+});
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const missing = [...form.querySelectorAll('[required]')].find((el) => !el.value.trim());
-  if (missing) { show('err', `Please fill in "${missing.closest('label').firstChild.textContent.trim()}".`); missing.focus(); return; }
+  tried = true;
+  const bad = Object.keys(RULES).map((n) => form.elements[n]).filter((el) => !check(el));
+  if (bad.length) { show('err', bad.length === 1 ? 'Please fix the highlighted field.' : `Please fix the ${bad.length} highlighted fields.`); bad[0].focus(); return; }
   const email = form.email.value.trim();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { show('err', 'Please enter a valid work email, like you@yourcompany.com.'); form.email.focus(); return; }
   send.disabled = true; send.textContent = 'Sending…';
   try {
     const r = await fetch('/api/access-requests', { method: 'POST', headers: { 'Content-Type': 'application/json' },
