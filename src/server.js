@@ -785,7 +785,7 @@ app.delete('/api/shares/:id', auth, wrap(async (req, res) => {
 
 // Public link pages
 const page = (title, body) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(title)}</title><style>
+<title>${esc(title)}</title><link rel="icon" href="/favicon.svg" type="image/svg+xml"><style>
 :root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--mute:#6b7280;--line:#e5e7eb;--acc:#2f6bff;--danger:#d93838}
 @media (prefers-color-scheme:dark){:root{--bg:#111318;--card:#1a1d24;--ink:#e8eaf0;--mute:#9aa1ad;--line:#2a2e38;--acc:#5b8cff}}
 body{margin:0;font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
@@ -863,7 +863,8 @@ app.get('/api/activity.csv', auth, admin, wrap(async (req, res) => {
 app.get('/api/owner/teams', auth, owner, wrap(async (req, res) => {
   const teams = await q(`SELECT t.id, t.name, t.quota_bytes, t.disabled, t.created_at, t.trial_ends_at,
     (SELECT COUNT(*) FROM users u WHERE u.team_id=t.id) AS members,
-    (SELECT GROUP_CONCAT(u.email ORDER BY u.id SEPARATOR ', ') FROM users u WHERE u.team_id=t.id AND u.is_admin=1) AS admins
+    (SELECT GROUP_CONCAT(u.name ORDER BY u.id SEPARATOR ', ') FROM users u WHERE u.team_id=t.id AND u.is_admin=1) AS admins,
+    (SELECT GROUP_CONCAT(u.email ORDER BY u.id SEPARATOR ', ') FROM users u WHERE u.team_id=t.id AND u.is_admin=1) AS admin_emails
     FROM teams t ORDER BY t.name`);
   for (const t of teams) Object.assign(t, await teamUsage(t.id), { quota_bytes: t.quota_bytes === null ? null : Number(t.quota_bytes), disabled: !!t.disabled, mine: t.id === T(req) });
   res.json(teams);

@@ -12,6 +12,7 @@ const cfg = () => ({
 
 const shell = (title, body) => `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)} · TeamDrive</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <style>
 :root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--mute:#6b7280;--line:#e5e7eb;--acc:#2f6bff}
 @media (prefers-color-scheme:dark){:root{--bg:#111318;--card:#1a1d24;--ink:#e8eaf0;--mute:#9aa1ad;--line:#2a2e38;--acc:#5b8cff}}

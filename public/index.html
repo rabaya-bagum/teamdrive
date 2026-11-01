@@ -4,9 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TeamDrive</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <style>
-:root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--mute:#6b7280;--line:#e5e7eb;--acc:#2563eb;--danger:#d93838;--hover:#f1f3f7}
-@media (prefers-color-scheme:dark){:root{--bg:#111318;--card:#1a1d24;--ink:#e8eaf0;--mute:#9aa1ad;--line:#2a2e38;--acc:#5b8cff;--hover:#22262f;--danger:#ff7b7b}.notice.warn a{color:#a9c1ff}:root button.p{color:#0f1626}:root button.p:hover{background:#82a6ff}:root .autherr{color:#ffb4b4}.spin{border-color:rgba(15,22,38,.35);border-top-color:#0f1626}}
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--mute:#586070;--line:#e5e7eb;--acc:#2563eb;--danger:#d93838;--hover:#f1f3f7}
+@media (prefers-color-scheme:dark){:root{--bg:#111318;--card:#1a1d24;--ink:#e8eaf0;--mute:#b4bac6;--line:#2a2e38;--acc:#5b8cff;--hover:#22262f;--danger:#ff7b7b}.notice.warn a{color:#a9c1ff}:root button.p{color:#0f1626}:root button.p:hover{background:#82a6ff}:root .autherr{color:#ffb4b4}.spin{border-color:rgba(15,22,38,.35);border-top-color:#0f1626}}
 *{box-sizing:border-box}body{margin:0;font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
 button,input,select{font:inherit}button{cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 12px;border-radius:8px}
 button:hover{background:var(--hover)}button:disabled{opacity:.45;cursor:not-allowed}button.p{background:var(--acc);border-color:var(--acc);color:#fff}button.p:hover{background:#1d4ed8}button.d{color:var(--danger)}
@@ -69,7 +70,12 @@ header b{font-size:17px;margin-right:6px}header .sp{flex:1}header button{padding
 .qbar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:4px;min-width:90px}.qbar i{display:block;height:100%;background:var(--acc)}.qbar i.hi{background:var(--danger)}
 tr.bad td{color:var(--danger)}.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.filters>*{width:auto;flex:0 1 auto}.filters input[type=search]{min-width:180px}
 .when{white-space:nowrap}
-main{max-width:1050px;margin:0 auto;padding:16px}
+main{max-width:1200px;margin:0 auto;padding:20px 24px}
+.logo{width:26px;height:26px;flex:none;vertical-align:-7px;margin-right:8px}
+header .brandmark{display:flex;align-items:center;font-size:17px;margin-right:6px}
+.appfoot{max-width:1200px;margin:24px auto 0;padding:16px 24px 28px;display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--mute);border-top:1px solid var(--line)}
+.appfoot a{color:var(--mute)}.appfoot a:hover{color:var(--ink)}.appfoot .sp{flex:1}
+.acct{display:grid;gap:14px}.acct .who{display:grid;gap:2px}.acct .row2{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
 .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
 .crumbs a{color:var(--acc);cursor:pointer}td a{color:var(--acc)}.login a{color:var(--acc)}.login a.home{color:inherit;text-decoration:none;justify-self:start}.login a.home:hover b{text-decoration:underline}.crumbs span{color:var(--mute);margin:0 4px}
 table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
@@ -246,7 +252,7 @@ const closeMenu = () => $('#menu')?.remove();
 const EYE = '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
 function authShell(tab, inner) {
   $$('#picker,#dirPicker').forEach((el) => el.remove());
-  $('#app').innerHTML = `<main class="authpage"><a href="/" class="authbrand">TeamDrive <span>by Equawire</span></a>
+  $('#app').innerHTML = `<main class="authpage"><a href="/" class="authbrand"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#16213A"/><path d="M6 10.5A1.5 1.5 0 0 1 7.5 9h5.4l2.2 2.4h9.4A1.5 1.5 0 0 1 26 12.9v9.6A1.5 1.5 0 0 1 24.5 24h-17A1.5 1.5 0 0 1 6 22.5z" fill="#F3C969"/></svg>TeamDrive <span>by Equawire</span></a>
     <div class="auth"><div class="authbody">${inner}</div></div>
     <p class="authlegal">By signing in you agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</p></main>`;
 }
@@ -436,11 +442,12 @@ function trialBar() {
 function shell() {
   mountPickers();
   if (location.pathname === '/login') history.replaceState(null, '', '/');
-  $('#app').innerHTML = `<header><b>TeamDrive</b><span class="team hide-s" title="${esc(me.team_name)}">${esc(me.team_name)}</span>
+  $('#app').innerHTML = `<header><b class="brandmark"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#16213A"/><path d="M6 10.5A1.5 1.5 0 0 1 7.5 9h5.4l2.2 2.4h9.4A1.5 1.5 0 0 1 26 12.9v9.6A1.5 1.5 0 0 1 24.5 24h-17A1.5 1.5 0 0 1 6 22.5z" fill="#F3C969"/></svg>TeamDrive</b><span class="team hide-s" title="${esc(me.team_name)}">${esc(me.team_name)}</span>
     <nav class="tabs" aria-label="Sections"><button data-v="files">Files</button><button data-v="shares">Shared links</button><button data-v="trash">Trash</button></nav>
     ${me.is_admin ? '<span class="vsep" aria-hidden="true"></span><button class="ghost" id="adminBtn" aria-haspopup="menu">Admin ▾</button>' : ''}
     <div class="sp"></div><span id="usage" class="hide-s"></span><input id="search" placeholder="Search files…">
-    <button id="acct">${esc(me.name)} ▾</button></header>${trialBar()}<main id="main"></main>`;
+    <button id="acct">${esc(me.name)} ▾</button></header>${trialBar()}<main id="main"></main>
+    <footer class="appfoot"><span>TeamDrive by Equawire</span><span class="sp"></span><a href="/terms" target="_blank" rel="noopener">Terms of Service</a><a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a></footer>`;
   const go = (v) => { view = v; folder = 'root'; $('#search').value = ''; render(); };
   $$('[data-v]').forEach((b) => b.onclick = () => go(b.dataset.v));
   if ($('#adminBtn')) $('#adminBtn').onclick = (e) => { e.stopPropagation(); menu(e.currentTarget, [
@@ -448,10 +455,7 @@ function shell() {
     { label: 'Activity', run: () => go('activity') },
     me.is_owner && { label: 'Teams (owner)', run: () => go('teams') }]); };
   $('#acct').onclick = (e) => { e.stopPropagation(); menu(e.currentTarget, [
-    !me.is_demo && { label: 'Change password', run: changePassword },
-    !me.is_demo && { label: 'Two-step login', run: twoStepDialog },
-    { label: 'Terms of Service', run: () => window.open('/terms', '_blank', 'noopener') },
-    { label: 'Privacy Policy', run: () => window.open('/privacy', '_blank', 'noopener') },
+    { label: 'Account settings', run: accountSettings },
     { label: 'Sign out', run: logout }]); };
   let t; $('#search').oninput = (e) => { clearTimeout(t); t = setTimeout(() => { view = e.target.value.trim() ? 'search' : 'files'; render(); }, 250); };
   render();
@@ -495,6 +499,7 @@ function table(folders, files, { trash = false, select = false, owner = true } =
 const folderItems = (f) => [
   { label: 'Open', run: () => { view = 'files'; folder = String(f.id); $('#search').value = ''; render(); } },
   { label: 'Download as zip', run: () => { location.href = `/api/folders/${f.id}/zip`; } },
+  { label: 'Share link…', run: () => notify('Share links work for single files. To share a whole folder, open it and share the files inside, or download the folder as a zip and send that.') },
   { label: 'Move…', run: () => moveItem('folder', f.id) },
   { label: 'Rename…', run: () => rename('folder', f) },
   f.can_manage && { label: f.restricted ? 'Access…' : 'Restrict access…', run: () => accessDialog(f) },
@@ -701,6 +706,17 @@ function addMemberDialog() {
       render(); setTimeout(() => notify(`${v.name} was added. Their temporary password is ${v.password}`));
     } });
 }
+async function accountSettings() {
+  const a = await api('/api/me');
+  modal({ title: 'Account settings', cancel: 'Close', body: `<div class="acct">
+    <div class="who"><b>${esc(a.name)}</b><span class="m">${esc(a.email)} · ${a.is_admin ? 'Admin' : 'Member'} of ${esc(a.team_name)}</span></div>
+    ${a.is_demo ? '<span class="m">Password and two-step login can’t be changed in the public demo.</span>' : `
+    <div class="row2"><div><b>Password</b><div class="m">Change the password you sign in with.</div></div><button type="button" id="asPw">Change password</button></div>
+    <div class="row2"><div><b>Two-step login</b><div class="m">${a.totp_enabled ? `On${a.totp_required ? ', required for your account' : ''}. ${a.backup_codes_left} backup code${a.backup_codes_left === 1 ? '' : 's'} left.` : 'Off. Adds a code from your phone at sign-in.'}</div></div><button type="button" id="as2fa">${a.totp_enabled ? 'Manage' : 'Turn on'}</button></div>`}
+  </div>` });
+  if ($('#asPw')) $('#asPw').onclick = () => { $('#dlg').close(); changePassword(); };
+  if ($('#as2fa')) $('#as2fa').onclick = () => { $('#dlg').close(); twoStepDialog(); };
+}
 function resetPassword(u) {
   modal({ title: `Reset password for ${u.name}`, submit: 'Reset',
     body: field('password', 'New password (8+ characters)', 'password', 'required minlength="8" autocomplete="new-password"'),
@@ -893,7 +909,7 @@ async function teamsView(m, get) {
       const tl = trialLeft(t.trial_ends_at);
       const trialTag = tl === null ? '' : `<span class="tag${tl <= 3 ? ' warn' : ''}" title="${tl < 0 ? 'Ended' : 'Ends'} ${day(t.trial_ends_at)}">${trialText(tl)}</span>`;
       return `<tr><td>${esc(t.name)}${t.mine ? '<span class="tag">your team</span>' : ''}${trialTag}${t.disabled ? '<span class="tag" style="color:var(--danger)">disabled</span>' : ''}</td>
-      <td class="m hide-s">${esc(t.admins || '—')}</td><td class="m hide-s">${t.members}</td>
+      <td class="m hide-s" title="${esc(t.admin_emails || '')}">${esc(t.admins || '—')}</td><td class="m hide-s">${t.members}</td>
       <td class="m">${fmt(t.used)} ${t.quota_bytes ? `of ${fmt(t.quota_bytes)}<div class="qbar"><i class="${pct >= 90 ? 'hi' : ''}" style="width:${pct}%"></i></div>` : '· no limit'}</td>
       <td class="m hide-s">${day(t.created_at)}</td><td class="acts"><button data-tm="${t.id}">⋯</button></td></tr>`; }).join('')}</table>`;
   const byId = Object.fromEntries(teams.map((t) => [t.id, t]));
