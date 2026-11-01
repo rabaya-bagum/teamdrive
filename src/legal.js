@@ -11,7 +11,7 @@ const cfg = () => ({
 });
 
 const shell = (title, body) => `<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)} · TeamDrive</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)} · TeamDrive</title><meta name="description" content="${esc(title)} for TeamDrive by Equawire."><link rel="canonical" href="${(process.env.APP_URL || '').replace(/\/$/, '')}/${title.startsWith('Privacy') ? 'privacy' : 'terms'}">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <style>
 :root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--mute:#6b7280;--line:#e5e7eb;--acc:#2f6bff}

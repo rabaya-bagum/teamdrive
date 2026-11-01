@@ -1,3 +1,4 @@
+const fs = require('fs');
 require('dotenv').config();
 const path = require('path');
 const crypto = require('crypto');
@@ -18,6 +19,23 @@ const LANDING = !['0', 'false', 'no'].includes(String(process.env.LANDING_PAGE ?
 
 const app = express();
 app.set('trust proxy', 1);
+// Search engines: only the public marketing pages may be indexed. Everything else
+// (the app, the API, shared-file links, the demo) is marked noindex.
+const BASE = (process.env.APP_URL || '').replace(/\/$/, '');
+const INDEXABLE = LANDING && !['0', 'false', 'no'].includes(String(process.env.SEARCH_INDEXING ?? '1').toLowerCase());
+app.get('/robots.txt', (req, res) => res.type('text/plain').send(INDEXABLE
+  ? `User-agent: *\nDisallow: /api/\nDisallow: /s/\nDisallow: /demo\nDisallow: /health\nAllow: /$\nAllow: /terms\nAllow: /privacy\n\nSitemap: ${BASE}/sitemap.xml\n`
+  : 'User-agent: *\nDisallow: /\n'));
+app.get('/sitemap.xml', (req, res) => {
+  if (!INDEXABLE) return res.status(404).end();
+  const urls = ['/', '/terms', '/privacy'].map((u) => `<url><loc>${BASE}${u}</loc></url>`).join('');
+  res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`);
+});
+app.use((req, res, next) => {
+  const pub = INDEXABLE && ['/', '/terms', '/privacy', '/og-image.png'].includes(req.path);
+  if (!pub) res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  next();
+});
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(
@@ -1010,7 +1028,11 @@ app.get('/terms', (req, res) => res.send(legal.terms()));
 app.get('/privacy', (req, res) => res.send(legal.privacy()));
 // Signed-out visitors see the landing page; signed-in people go straight to their files.
 const PUBLIC = path.join(__dirname, '..', 'public');
-app.get('/', (req, res) => res.sendFile(path.join(PUBLIC, req.session.user?.v === SESSION_V || !LANDING ? 'index.html' : 'landing.html')));
+const landingHtml = fs.readFileSync(path.join(PUBLIC, 'landing.html'), 'utf8').replaceAll('{{BASE}}', BASE);
+app.get('/', (req, res) => {
+  if (req.session.user?.v === SESSION_V || !LANDING) return res.sendFile(path.join(PUBLIC, 'index.html'));
+  res.setHeader('X-Robots-Tag', 'all'); res.type('html').send(landingHtml);
+});
 app.get('/login', (req, res) => res.sendFile(path.join(PUBLIC, 'index.html')));
 app.use(express.static(PUBLIC, { index: false }));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'index.html')));

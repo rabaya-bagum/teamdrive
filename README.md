@@ -53,6 +53,10 @@ The app backs up its database by itself, every night (after `BACKUP_HOUR`, defau
 
 To practise safely, first create an empty spare database and run the restore with `DB_NAME=<spare> npm run restore-backup -- latest --yes`.
 
+## Search engines
+
+Only the public pages (home, Terms, Privacy) can appear in Google. The app, the API, shared-file links and the demo send `noindex` and are blocked in `/robots.txt`. `/sitemap.xml` lists the public pages; submit `https://<your-domain>/sitemap.xml` in Google Search Console and Bing Webmaster Tools. `APP_URL` must be the exact public address (https, no trailing slash), since it is used for the canonical and sharing tags. Client copies (`LANDING_PAGE=0`) are hidden from search entirely; `SEARCH_INDEXING=0` does the same on any copy.
+
 ## Monitoring
 
 `GET /health` returns `{"status":"ok", ...}` when the database and storage are reachable and the last backup is under 26 hours old. It returns `"warning"` if the backup is overdue, and HTTP 503 with `"error"` if the database or storage is down. It reveals nothing about customers' data.
