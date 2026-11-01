@@ -5,7 +5,8 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "create-user": "node scripts/create-user.js"
+    "create-user": "node scripts/create-user.js",
+    "restore-backup": "node scripts/restore-backup.js"
   },
   "engines": { "node": ">=18" },
   "dependencies": {

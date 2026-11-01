@@ -37,6 +37,28 @@ Signed-out visitors to `/` see a landing page ("TeamDrive by Equawire", `public/
 
 The headline font (Bricolage Grotesque, SIL Open Font License, see `public/fonts/`) is served from your own server so visitors' browsers never contact Google.
 
+## Backups
+
+The app backs up its database by itself, every night (after `BACKUP_HOUR`, default 2 AM server time) and shortly after start-up if the last backup is more than a day old. Each backup is one compressed SQL file in your storage bucket at `backups/<DB_NAME>/teamdrive-YYYY-MM-DD-HHMM.sql.gz`, kept for `BACKUP_KEEP_DAYS` (default 30; the newest 3 are always kept). It is written in Node, so it works without the `mysqldump` tool.
+
+- **What's covered:** everything in the database — teams, users, folders, file records and versions, share links, two-step login settings, activity log, requests. The files themselves are already in the bucket and are not duplicated. Sign-in sessions are not kept, so after a restore everyone signs in again.
+- **See and download backups:** owner → Admin ▾ → Teams → *Database backups* (with **Back up now**).
+- **Turn off** (not recommended): `BACKUPS=0`.
+
+### Restoring a backup
+1. Stop the app in Hostinger.
+2. In the app folder (SSH / terminal), list backups: `npm run restore-backup`
+3. Restore the newest: `npm run restore-backup -- latest --yes` (or give a key from the list, or a downloaded `.sql.gz` file).
+4. Start the app again. Everyone signs in again.
+
+To practise safely, first create an empty spare database and run the restore with `DB_NAME=<spare> npm run restore-backup -- latest --yes`.
+
+## Monitoring
+
+`GET /health` returns `{"status":"ok", ...}` when the database and storage are reachable and the last backup is under 26 hours old. It returns `"warning"` if the backup is overdue, and HTTP 503 with `"error"` if the database or storage is down. It reveals nothing about customers' data.
+
+Free setup with UptimeRobot: add a **Keyword** monitor for `https://<your-domain>/health`, keyword `"status":"ok"`, alert when the keyword is **not** found. You'll get an email if the site is down, storage is unreachable, or backups stop.
+
 ## Terms of Service and Privacy Policy
 Served at `/terms` and `/privacy` and linked from the sign-in page, share-link pages and the account menu. The business name, contact email and date come from `.env` (`LEGAL_NAME`, `LEGAL_OPERATOR`, `LEGAL_EMAIL`, `LEGAL_UPDATED`), so you can update them after incorporating without touching code. The text itself is in `src/legal.js`. If you change how TeamDrive handles data (new providers, analytics, retention), update the policy too.
 

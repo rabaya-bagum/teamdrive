@@ -59,6 +59,7 @@ h2.sub{font-size:16px;margin:8px 0 10px}
 .tag.ok{color:#14532d;border-color:#9fd3ae;background:color-mix(in srgb,#1e8e4e 10%,var(--card))}
 @media (prefers-color-scheme:dark){.tag.bad{color:#ffb4b4;border-color:#7a3a3a}.tag.ok{color:#b7f0c8;border-color:#2f6b45}}
 .dropnote{font-size:13px;color:var(--mute);margin:-6px 0 12px}
+.backups{margin-top:32px}.btn-link{color:var(--acc);font-weight:500}
 input,select{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 10px;border-radius:8px;width:100%}
 input[type=checkbox]{width:auto}
 header{display:flex;gap:8px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--card);flex-wrap:wrap}
@@ -877,7 +878,7 @@ const ACT = { login: 'Signed in', login_failed: 'Failed sign-in', password_chang
   user_add: 'Added member', user_remove: 'Removed member', upload: 'Uploaded', new_version: 'Uploaded a new version of', version_restore: 'Restored an older version of',
   download: 'Downloaded', zip_download: 'Downloaded as zip', rename: 'Renamed', move: 'Moved', delete: 'Moved to Trash', restore: 'Restored from Trash',
   purge: 'Deleted forever', folder_create: 'Created folder', access_change: 'Changed access to', share_create: 'Created a share link for',
-  share_revoke: 'Revoked a share link for', share_open: 'Downloaded via share link', team_create: 'Created team', team_update: 'Updated team' };
+  share_revoke: 'Revoked a share link for', share_open: 'Downloaded via share link', team_create: 'Created team', team_update: 'Updated team', backup: 'Made a database backup' };
 const ACT_GROUPS = {
   'Files & folders': 'upload,new_version,version_restore,download,zip_download,rename,move,delete,restore,purge,folder_create',
   'Sharing': 'share_create,share_revoke,share_open',
@@ -938,6 +939,28 @@ async function activityView(m, get, my) {
 }
 
 // ---------- Teams (owner) ----------
+// Backups panel at the bottom of the owner's Teams page.
+async function backupsPanel(m, get) {
+  const b = await get('/api/owner/backups');
+  const box = document.createElement('section');
+  box.className = 'backups'; box.setAttribute('aria-labelledby', 'bkTitle');
+  const age = b.last ? (Date.now() - new Date(b.last.at)) / 3600e3 : null;
+  const state = !b.enabled ? 'Automatic backups are turned off (BACKUPS=0).'
+    : !b.last ? 'No backup yet. The first one runs shortly after the app starts.'
+    : `Last backup ${esc(rel(b.last.at).toLowerCase())} (${fmt(b.last.bytes)}, ${b.last.rows.toLocaleString()} records). A new one runs every night; backups are kept ${b.keep_days} days.`;
+  box.innerHTML = `<div class="pagehead"><div class="path"><h2 class="sub" id="bkTitle">Database backups</h2>
+      <p class="desc">${state}${age !== null && age > 26 ? ' <span class="tag warn">Overdue</span>' : ''}</p></div><button id="bkNow">Back up now</button></div>
+    ${b.list_error ? `<p class="m">Couldn't list backups: ${esc(b.list_error)}</p>` : b.items.length ? `<table><thead><tr><th>Backup</th><th>Size</th><th><span class="sr">Actions</span></th></tr></thead><tbody>
+      ${b.items.slice(0, 10).map((x) => `<tr><td>${dateCell(x.at)} <span class="m">${esc(new Date(x.at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }))}</span></td><td class="m">${fmt(x.bytes)}</td>
+        <td class="acts"><a class="btn-link" href="/api/owner/backups/download?key=${encodeURIComponent(x.key)}">Download</a></td></tr>`).join('')}</tbody></table>
+      <p class="m">To restore one, see "Restoring a backup" in the README (npm run restore-backup).</p>` : ''}`;
+  m.appendChild(box);
+  $('#bkNow').onclick = async (e) => {
+    const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'Backing up…';
+    try { const r = await api('/api/owner/backups', { method: 'POST' }); notify(`Backup saved (${fmt(r.bytes)}).`); render(); }
+    catch (err) { btn.disabled = false; btn.textContent = 'Back up now'; notify(err.message); }
+  };
+}
 async function teamsView(m, get) {
   const [teams, reqs] = await Promise.all([get('/api/owner/teams'), get('/api/owner/requests')]);
   const open = reqs.filter((r) => !r.handled_at);
@@ -972,6 +995,7 @@ async function teamsView(m, get) {
       setTimeout(() => notify(`Team "${v.name}" is ready${Number(v.trial_days) > 0 ? ` with a ${Number(v.trial_days)}-day free trial` : ''}. Email ${v.admin_email} the sign-in address (${location.origin}/login) and, separately, their temporary password: ${v.admin_password}`));
     } });
   $('#nt').onclick = () => newTeam();
+  backupsPanel(m, get).catch(() => {});
   const R = Object.fromEntries(reqs.map((r) => [r.id, r]));
   $$('[data-rq-create]').forEach((b) => b.onclick = () => newTeam(R[b.dataset.rqCreate]));
   $$('[data-rq-done]').forEach((b) => b.onclick = async () => { await api(`/api/owner/requests/${b.dataset.rqDone}`, { method: 'PATCH', body: { handled: true } }); render(); });

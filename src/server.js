@@ -12,6 +12,7 @@ const r2 = require('./r2');
 const totp = require('./totp');
 const legal = require('./legal');
 const demo = require('./demo');
+const backup = require('./backup');
 // Show the Equawire marketing page at / for signed-out visitors. Set LANDING_PAGE=0 on clients' private copies.
 const LANDING = !['0', 'false', 'no'].includes(String(process.env.LANDING_PAGE ?? '1').toLowerCase());
 
@@ -873,6 +874,23 @@ app.get('/api/activity.csv', auth, admin, wrap(async (req, res) => {
   res.send('﻿' + lines.join('\r\n'));
 }));
 
+// ---------- Backups (owner) ----------
+app.get('/api/owner/backups', auth, owner, wrap(async (req, res) => {
+  let items = [], listError = null;
+  try { items = (await backup.list()).slice(0, 40); } catch (e) { listError = e.message; }
+  res.json({ enabled: backup.ENABLED, keep_days: backup.KEEP_DAYS, last: await backup.last(), items, list_error: listError });
+}));
+app.post('/api/owner/backups', auth, owner, wrap(async (req, res) => {
+  const info = await backup.run('manual').catch((e) => { throw httpErr(500, `Backup failed: ${e.message}`); });
+  log(req, 'backup', {}, `${Math.round(info.bytes / 1024)} KB`);
+  res.json(info);
+}));
+app.get('/api/owner/backups/download', auth, owner, wrap(async (req, res) => {
+  const key = String(req.query.key || '');
+  if (!key.startsWith(backup.PREFIX) || !/^teamdrive-[\d-]+\.sql\.gz$/.test(key.slice(backup.PREFIX.length))) throw httpErr(400, 'Unknown backup');
+  res.redirect(await r2.downloadUrl(key, key.slice(backup.PREFIX.length)));
+}));
+
 // ---------- Teams (platform owner) ----------
 app.get('/api/owner/teams', auth, owner, wrap(async (req, res) => {
   const teams = await q(`SELECT t.id, t.name, t.quota_bytes, t.disabled, t.created_at, t.trial_ends_at,
@@ -958,6 +976,18 @@ app.get('/api/owner/requests', auth, owner, wrap(async (req, res) => {
 app.patch('/api/owner/requests/:id', auth, owner, wrap(async (req, res) => {
   await q('UPDATE access_requests SET handled_at=? WHERE id=?', [req.body.handled ? new Date() : null, req.params.id]);
   res.json({ ok: true });
+}));
+
+// Health check for uptime monitors (e.g. UptimeRobot keyword "\"status\":\"ok\"").
+// Says only whether things work, never anything about customers' data.
+app.get('/health', wrap(async (req, res) => {
+  const checks = {};
+  try { await q('SELECT 1'); checks.database = 'ok'; } catch { checks.database = 'error'; }
+  try { await r2.ping(); checks.storage = 'ok'; } catch { checks.storage = 'error'; }
+  if (!backup.ENABLED) checks.backup = 'off';
+  else { const l = await backup.last().catch(() => null); checks.backup = l && Date.now() - new Date(l.at) < 26 * 3600e3 ? 'ok' : 'stale'; }
+  const status = checks.database !== 'ok' || checks.storage !== 'ok' ? 'error' : checks.backup === 'stale' ? 'warning' : 'ok';
+  res.set('Cache-Control', 'no-store').status(status === 'error' ? 503 : 200).json({ status, checks, time: new Date().toISOString() });
 }));
 
 // Public settings the pages need before sign-in.
@@ -1082,5 +1112,6 @@ migrate()
     runPurge();
     setInterval(runPurge, 60 * 60 * 1000).unref();
     demo.schedule();
+    backup.schedule();
   })
   .catch((e) => { console.error('Startup failed:', e); process.exit(1); });

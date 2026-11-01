@@ -1,4 +1,4 @@
-const { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, DeleteObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 const s3 = new S3Client({
@@ -39,5 +39,17 @@ const getStream = async (Key) => (await s3.send(new GetObjectCommand({ Bucket, K
 const head = (Key) => s3.send(new HeadObjectCommand({ Bucket, Key }));
 const put = (Key, Body, ContentType) => s3.send(new PutObjectCommand({ Bucket, Key, Body, ContentType }));
 const remove = (Key) => s3.send(new DeleteObjectCommand({ Bucket, Key }));
+async function list(Prefix) {
+  const out = []; let ContinuationToken;
+  do {
+    const r = await s3.send(new ListObjectsV2Command({ Bucket, Prefix, ContinuationToken }));
+    out.push(...(r.Contents || []));
+    ContinuationToken = r.IsTruncated ? r.NextContinuationToken : undefined;
+  } while (ContinuationToken);
+  return out;
+}
+// Cheap reachability check for the health endpoint
+const ping = () => s3.send(new ListObjectsV2Command({ Bucket, MaxKeys: 1 }));
+const getBuffer = async (Key) => Buffer.from(await (await s3.send(new GetObjectCommand({ Bucket, Key }))).Body.transformToByteArray());
 
-module.exports = { uploadUrl, downloadUrl, previewUrl, getStream, head, put, remove };
+module.exports = { uploadUrl, downloadUrl, previewUrl, getStream, getBuffer, head, put, remove, list, ping };
