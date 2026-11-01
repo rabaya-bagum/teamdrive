@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Client portal</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--mute:#586070;--line:#e5e7eb;--acc:#2563eb;--acc-ink:#1d4ed8;--ok:#1e8e4e;--danger:#c42b2b;--hover:#f1f3f7;--warn-bg:#fdf3dc;--warn-line:#e7b85c}
+@media (prefers-color-scheme:dark){:root{--bg:#111318;--card:#1a1d24;--ink:#e8eaf0;--mute:#b4bac6;--line:#2a2e38;--acc:#5b8cff;--acc-ink:#a9c1ff;--ok:#5fd18a;--danger:#ff8a8a;--hover:#22262f;--warn-bg:#2d2715;--warn-line:#8a6a2a}button.p{color:#0f1626!important}}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
+button,input,textarea{font:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:9px 14px;border-radius:9px;min-height:42px}
+button:hover{background:var(--hover)}button.p{background:var(--acc);border-color:var(--acc);color:#fff}button.p:hover{background:var(--acc-ink)}
+button.link{border:0;background:none;color:var(--acc-ink);padding:4px 0;min-height:0;text-decoration:underline}
+button:disabled{opacity:.5;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+a{color:var(--acc-ink)}
+input,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink)}
+label{display:grid;gap:6px;font-size:14px;color:var(--mute)}
+.wrap{max-width:760px;margin:0 auto;padding:0 16px}
+.top{background:var(--card);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:12px;min-height:60px}
+.firm{font-weight:700;font-size:17px}.who{color:var(--mute);font-size:14px;margin-left:auto;text-align:right}
+h1{font-size:26px;line-height:1.2;margin:28px 0 6px}h2{font-size:19px;margin:34px 0 12px}
+.lead{color:var(--mute);margin:0 0 18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:16px;overflow:hidden}
+.card>header{padding:14px 18px;border-bottom:1px solid var(--line)}
+.card h3{margin:0;font-size:17px}.meta{color:var(--mute);font-size:14px}
+.progress{height:6px;border-radius:9px;background:var(--line);overflow:hidden;margin-top:10px}.progress i{display:block;height:100%;background:var(--ok)}
+.item{padding:16px 18px;border-top:1px solid var(--line);display:grid;gap:8px}.item:first-of-type{border-top:0}
+.item .row{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+.item b{font-size:16px}.note{color:var(--mute);font-size:14px}
+.state{font-size:13px;border-radius:999px;padding:2px 10px;border:1px solid var(--line);color:var(--mute);white-space:nowrap}
+.state.ok{color:var(--ok);border-color:currentColor}.state.need{color:var(--danger);border-color:currentColor}.state.sent{color:var(--acc-ink);border-color:currentColor}
+.ask{background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:9px;padding:8px 12px;font-size:14px}
+.files{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.files li{display:flex;align-items:center;gap:8px;font-size:14px;flex-wrap:wrap}.files .meta{font-size:13px}
+.acts{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:10px 12px;color:var(--mute);font-size:14px}.drop.over{border-color:var(--acc);background:var(--hover)}
+.prog{font-size:14px;color:var(--acc-ink)}.prog:empty,.err:empty{display:none}.drop .err,.drop .prog{margin:8px 0 0}
+.err{color:var(--danger);font-size:14px;min-height:1px}
+.empty{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px;text-align:center;color:var(--mute)}
+.auth{max-width:420px;margin:60px auto;padding:0 16px}.auth form{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px;display:grid;gap:14px}
+.auth h1{margin:0 0 4px}
+details summary{cursor:pointer;color:var(--mute);margin:8px 0 12px}
+footer{color:var(--mute);font-size:13px;padding:40px 0;text-align:center}
+@media (max-width:640px){.hide-s{display:none}}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<div id="app"><p class="wrap" style="padding-top:40px">Loading…</p></div>
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = (b) => { b = Number(b); return b < 1024 ? b + ' B' : b < 1048576 ? Math.round(b / 1024) + ' KB' : (b / 1048576).toFixed(1) + ' MB'; };
+const dayOf = (d) => new Date(d + 'T12:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+const daysTo = (d) => Math.round((new Date(d + 'T12:00') - new Date().setHours(12, 0, 0, 0)) / 864e5);
+async function api(url, opts = {}) {
+  const r = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts, body: opts.body && JSON.stringify(opts.body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(j.error || 'Something went wrong. Please try again.'), { status: r.status });
+  return j;
+}
+const footer = '<footer>Secure client portal · <a href="/privacy" target="_blank" rel="noopener">Privacy</a> · <a href="/terms" target="_blank" rel="noopener">Terms</a></footer>';
+
+// ---------- Sign in / invite ----------
+function loginView(msg = '') {
+  document.title = 'Sign in · Client portal';
+  $('#app').innerHTML = `<main class="auth"><form id="f" novalidate><div><h1>Sign in</h1><p class="lead">Use the email your firm invited.</p></div>
+    ${msg ? `<p class="ask" role="status">${esc(msg)}</p>` : ''}
+    <label>Email<input name="email" type="email" autocomplete="username" required autofocus></label>
+    <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+    <p class="err" id="err" role="alert"></p><button class="p">Sign in</button>
+    <p class="meta">Forgot your password? Ask your firm to send you a new set-up link.</p></form></main>${footer}`;
+  $('#f').onsubmit = async (e) => {
+    e.preventDefault();
+    const v = Object.fromEntries(new FormData(e.target));
+    try { await api('/api/portal/login', { method: 'POST', body: v }); home(); } catch (err) { $('#err').textContent = err.message; }
+  };
+}
+async function inviteView(token) {
+  let inv;
+  try { inv = await api(`/api/portal/invite?token=${encodeURIComponent(token)}`); }
+  catch (err) { history.replaceState(null, '', '/portal'); return loginView(err.message); }
+  document.title = 'Set up your account · Client portal';
+  $('#app').innerHTML = `<main class="auth"><form id="f"><div><h1>Welcome, ${esc(inv.name.split(' ')[0])}</h1>
+    <p class="lead">${esc(inv.firm)} uses this portal to collect and share documents with you securely. Choose a password to finish.</p></div>
+    <label>Email<input value="${esc(inv.email)}" autocomplete="username" readonly></label>
+    <label>New password (at least 10 characters)<input name="password" type="password" autocomplete="new-password" minlength="10" required autofocus></label>
+    <p class="err" id="err" role="alert"></p><button class="p">Create account</button></form></main>${footer}`;
+  $('#f').onsubmit = async (e) => {
+    e.preventDefault();
+    try { await api('/api/portal/invite', { method: 'POST', body: { token, password: e.target.password.value } }); history.replaceState(null, '', '/portal'); home(); }
+    catch (err) { $('#err').textContent = err.message; }
+  };
+}
+
+// ---------- Home ----------
+let me = null;
+const STATE = {
+  waiting: ['To do', ''], changes: ['Needs a change', 'need'], submitted: ['Sent', 'sent'], na: ['Marked not applicable', 'sent'], accepted: ['Accepted', 'ok'],
+};
+async function home() {
+  try { me = await api('/api/portal/me'); } catch { return loginView(); }
+  const [reqs, shared] = await Promise.all([api('/api/portal/requests'), api('/api/portal/shared')]).catch((e) => { if (e.status === 401) loginView(); throw e; });
+  document.title = `${me.firm} · Client portal`;
+  const open = reqs.filter((r) => r.status === 'open'), done = reqs.filter((r) => r.status !== 'open');
+  const todo = open.reduce((n, r) => n + r.items.filter((i) => ['waiting', 'changes'].includes(i.status)).length, 0);
+  $('#app').innerHTML = `<div class="top"><div class="wrap"><span class="firm">${esc(me.firm)}</span><span class="who">${esc(me.name)}<br><button class="link" id="out">Sign out</button></span></div></div>
+  <main class="wrap">
+    <h1>${todo ? `${todo} item${todo === 1 ? '' : 's'} to send` : open.length ? 'All sent. Thank you!' : 'Nothing needed right now'}</h1>
+    <p class="lead">${todo ? `${esc(me.firm)} needs the documents below. Upload each one where it's asked for. You can upload from your phone, and photos are fine.`
+      : open.length ? `${esc(me.firm)} will review what you sent and let you know if anything needs a change.` : `${esc(me.firm)} will email you when they need something.`}</p>
+    ${open.map(card).join('') || ''}
+    <h2>Shared with you</h2>
+    ${shared.length ? `<div class="card"><ul class="files" style="padding:14px 18px">${shared.map((f) => `<li><a href="/api/portal/files/${f.id}/download">${esc(f.name)}</a><span class="meta">${fmt(f.size)} · ${new Date(f.updated_at).toLocaleDateString()}</span></li>`).join('')}</ul></div>`
+      : `<div class="empty">Files from ${esc(me.firm)}, like your finished documents, will appear here.</div>`}
+    ${done.length ? `<details><summary>${done.length} finished request${done.length === 1 ? '' : 's'}</summary>${done.map(card).join('')}</details>` : ''}
+  </main>${footer}`;
+  $('#out').onclick = async () => { await api('/api/portal/logout', { method: 'POST' }); loginView(); };
+  bind();
+}
+function card(r) {
+  const open = r.status === 'open';
+  const d = r.due_at ? daysTo(r.due_at) : null;
+  const due = !open || d === null ? '' : d < 0 ? ` · <b style="color:var(--danger)">was due ${esc(dayOf(r.due_at))}</b>` : d === 0 ? ' · <b>due today</b>' : ` · due ${esc(dayOf(r.due_at))}`;
+  return `<section class="card" aria-label="${esc(r.title)}"><header><h3>${esc(r.title)}</h3>
+    <div class="meta">${r.received} of ${r.total} sent${r.done ? `, ${r.done} accepted` : ''}${due}</div><div class="progress" aria-hidden="true"><i style="width:${r.total ? (100 * r.received) / r.total : 0}%"></i></div></header>
+    ${r.items.map((i) => item(i, open)).join('')}</section>`;
+}
+function item(i, open) {
+  const [label, cls] = STATE[i.status];
+  const canEdit = open && i.status !== 'accepted';
+  return `<div class="item" data-item="${i.id}"><div class="row"><div><b>${esc(i.label)}</b>${i.note ? `<div class="note">${esc(i.note)}</div>` : ''}</div><span class="state ${cls}">${label}</span></div>
+    ${i.status === 'changes' && i.review_comment ? `<div class="ask"><b>What to change:</b> ${esc(i.review_comment)}</div>` : ''}
+    ${i.na_reason ? `<div class="note">You said it doesn't apply: ${esc(i.na_reason)}</div>` : ''}
+    ${i.files.length ? `<ul class="files">${i.files.map((f) => `<li><a href="/api/portal/files/${f.id}/download">${esc(f.name)}</a><span class="meta">${fmt(f.size)}</span>${canEdit ? `<button class="link" data-rm="${i.id}:${f.id}" aria-label="Remove ${esc(f.name)}">Remove</button>` : ''}</li>`).join('')}</ul>` : ''}
+    ${canEdit ? `<div class="drop" data-drop="${i.id}"><div class="acts"><button class="${i.status === 'waiting' || i.status === 'changes' ? 'p' : ''}" data-up="${i.id}">${i.files.length ? 'Upload more' : 'Upload'}</button>
+        ${i.status !== 'na' && !i.files.length ? `<button class="link" data-na="${i.id}">This doesn't apply to me</button>` : ''}<span class="hide-s">or drop files here</span></div>
+        <input type="file" multiple hidden data-pick="${i.id}" accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip,.heic"><div class="prog" role="status" data-prog="${i.id}"></div><p class="err" role="alert" data-err="${i.id}"></p></div>` : ''}
+  </div>`;
+}
+async function sendFiles(itemId, files) {
+  const p = $(`[data-prog="${itemId}"]`), e = $(`[data-err="${itemId}"]`);
+  e.textContent = '';
+  for (const [n, file] of [...files].entries()) {
+    try {
+      const { id, url } = await api(`/api/portal/items/${itemId}/upload`, { method: 'POST', body: { name: file.name, size: file.size, mime: file.type } });
+      await new Promise((res, rej) => {
+        const x = new XMLHttpRequest();
+        x.open('PUT', url); x.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+        x.upload.onprogress = (ev) => ev.lengthComputable && (p.textContent = `Uploading ${file.name}${files.length > 1 ? ` (${n + 1} of ${files.length})` : ''}: ${Math.round((100 * ev.loaded) / ev.total)}%`);
+        x.onload = () => (x.status < 300 ? res() : rej(new Error('The upload did not finish. Please try again.')));
+        x.onerror = () => rej(new Error('Network problem. Check your connection and try again.'));
+        x.send(file);
+      });
+      await api(`/api/portal/items/${itemId}/complete`, { method: 'POST', body: { file_id: id } });
+    } catch (err) { e.textContent = `${file.name}: ${err.message}`; p.textContent = ''; return; }
+  }
+  home();
+}
+function bind() {
+  $$('[data-up]').forEach((b) => b.onclick = () => $(`[data-pick="${b.dataset.up}"]`).click());
+  $$('[data-pick]').forEach((inp) => inp.onchange = () => inp.files.length && sendFiles(inp.dataset.pick, inp.files));
+  $$('[data-drop]').forEach((d) => {
+    d.ondragover = (e) => { e.preventDefault(); d.classList.add('over'); };
+    d.ondragleave = () => d.classList.remove('over');
+    d.ondrop = (e) => { e.preventDefault(); d.classList.remove('over'); if (e.dataTransfer.files.length) sendFiles(d.dataset.drop, e.dataTransfer.files); };
+  });
+  $$('[data-rm]').forEach((b) => b.onclick = async () => {
+    const [i, f] = b.dataset.rm.split(':');
+    try { await api(`/api/portal/items/${i}/files/${f}`, { method: 'DELETE' }); home(); } catch (err) { $(`[data-err="${i}"]`).textContent = err.message; }
+  });
+  $$('[data-na]').forEach((b) => b.onclick = () => {
+    const id = b.dataset.na, box = $(`[data-drop="${id}"]`);
+    box.innerHTML = `<form class="acts" style="display:grid;gap:8px"><label>Tell ${esc(me.firm)} why this doesn't apply<textarea name="reason" rows="2" required maxlength="500"></textarea></label>
+      <div class="acts"><button class="p">Send</button><button type="button" class="link" id="naX">Cancel</button></div><p class="err" role="alert"></p></form>`;
+    const f = $('form', box); f.reason.focus();
+    $('#naX').onclick = home;
+    f.onsubmit = async (e) => { e.preventDefault(); try { await api(`/api/portal/items/${id}/na`, { method: 'POST', body: { reason: f.reason.value } }); home(); } catch (err) { $('.err', f).textContent = err.message; } };
+  });
+}
+
+const token = (location.hash.match(/invite=([\w-]+)/) || [])[1];
+token ? inviteView(token) : home();
+</script>
+</body>
+</html>

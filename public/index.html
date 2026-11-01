@@ -144,6 +144,24 @@ pre.codes{font:14px/1.9 ui-monospace,SFMono-Regular,Menlo,monospace;columns:2;ba
 #code2fa{font-size:22px;letter-spacing:4px;text-align:center}
 .mob{display:none}
 @media (max-width:700px){td,th{padding:8px}td{overflow-wrap:anywhere}.when{white-space:normal;font-size:12px;width:24%}.mob{display:block}.mob:empty{display:none}.hide-s{display:none}#search{max-width:none;order:9;flex-basis:100%}}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}.seg button{border:0;border-radius:0;background:var(--card)}.seg button[aria-selected=true]{background:var(--ink);color:var(--card)}
+tr.click{cursor:pointer}tr.click:hover td{background:color-mix(in srgb,var(--acc) 5%,var(--card))}
+.overdue{color:var(--danger);font-weight:600}.tag.warn2{color:#7a4b00;border-color:#e7b85c;background:color-mix(in srgb,#f3c969 22%,var(--card))}
+@media (prefers-color-scheme:dark){.tag.warn2{color:#ffd98a;border-color:#8a6a2a}}
+.bar{display:inline-block;width:70px;height:6px;border-radius:9px;background:var(--line);vertical-align:middle;overflow:hidden}.bar i{display:block;height:100%;background:#1e8e4e}
+section{margin:26px 0}section h2{font-size:18px;margin:0 0 10px}.sechead{display:flex;align-items:center;gap:10px}.sechead h2{margin:0;flex:1}
+.req{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:12px}
+.req>header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:12px 16px;border-bottom:1px solid var(--line);position:static;background:none;box-shadow:none}
+.req h3{margin:0;font-size:16px}.req .sp{flex:1}
+.items{list-style:none;margin:0;padding:0}.items li{display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-top:1px solid var(--line)}.items li:first-child{border-top:0}
+.il{flex:1;display:grid;gap:4px;min-width:0}.ia{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.file{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.file .fi{width:18px;height:18px}
+.quote{font-size:14px;border-left:3px solid var(--line);padding-left:8px;color:var(--mute)}
+details.closed summary{cursor:pointer;color:var(--mute);margin:8px 0}
+.flist{list-style:none;padding:0;margin:0;background:var(--card);border:1px solid var(--line);border-radius:12px}.flist li{display:flex;gap:10px;align-items:center;padding:10px 14px;border-top:1px solid var(--line)}.flist li:first-child{border-top:0}.flist .m{margin-left:auto}
+label.m:has(textarea){display:grid;gap:6px}textarea{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);resize:vertical}
+label.chk{display:flex;gap:8px;align-items:center;font-size:14px}fieldset.m{border:1px solid var(--line);border-radius:10px;display:grid;gap:6px}.row2{display:flex;gap:16px;align-items:end;flex-wrap:wrap}
+@media (max-width:640px){.items li{flex-direction:column}.ia{justify-content:flex-start}}
 </style>
 </head>
 <body>
@@ -473,12 +491,12 @@ function shell() {
   mountPickers();
   if (location.pathname === '/login') history.replaceState(null, '', '/');
   $('#app').innerHTML = `<header><b class="brandmark"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#16213A"/><path d="M6 10.5A1.5 1.5 0 0 1 7.5 9h5.4l2.2 2.4h9.4A1.5 1.5 0 0 1 26 12.9v9.6A1.5 1.5 0 0 1 24.5 24h-17A1.5 1.5 0 0 1 6 22.5z" fill="#F3C969"/></svg>TeamDrive</b><span class="team hide-s" title="${esc(me.team_name)}">${esc(me.team_name)}</span>
-    <nav class="tabs" aria-label="Sections"><button data-v="files">Files</button><button data-v="shares">Shared links</button><button data-v="trash">Trash</button></nav>
+    <nav class="tabs" aria-label="Sections">${me.portal ? '<button data-v="clients">Clients</button>' : ''}<button data-v="files">Files</button><button data-v="shares">Shared links</button><button data-v="trash">Trash</button></nav>
     ${me.is_admin ? '<span class="vsep" aria-hidden="true"></span><button class="ghost" id="adminBtn" aria-haspopup="menu">Admin ▾</button>' : ''}
     <div class="sp"></div><span id="usage" class="hide-s"></span><input id="search" placeholder="Search files…">
     <button id="acct">${esc(me.name)} ▾</button></header>${trialBar()}<main id="main"></main>
     <footer class="appfoot"><span>TeamDrive by Equawire</span><span class="sp"></span><a href="/terms" target="_blank" rel="noopener">Terms of Service</a><a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a></footer>`;
-  const go = (v) => { view = v; folder = 'root'; $('#search').value = ''; render(); };
+  const go = (v) => { view = v; folder = 'root'; clientId = null; $('#search').value = ''; render(); };
   $$('[data-v]').forEach((b) => b.onclick = () => go(b.dataset.v));
   if ($('#adminBtn')) $('#adminBtn').onclick = (e) => { e.stopPropagation(); menu(e.currentTarget, [
     { label: 'Team members', run: () => go('users') },
@@ -832,6 +850,8 @@ async function render() {
       $$('[data-cpl]').forEach((b) => b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.cpl); b.textContent = 'Copied'; } catch { showLink(b.dataset.cpl); } });
       $$('[data-rv]').forEach((b) => b.onclick = () => modal({ title: 'Revoke this link?', body: '<span class="m">It stops working immediately.</span>', submit: 'Revoke',
         onOk: async () => { await api(`/api/shares/${b.dataset.rv}`, { method: 'DELETE' }); render(); } }));
+    } else if (view === 'clients') {
+      await clientsView(m, get);
     } else if (view === 'activity') {
       await activityView(m, get, my);
     } else if (view === 'teams') {
@@ -873,17 +893,155 @@ async function render() {
   }
 }
 
+// ---------- Clients (portal) ----------
+let clientId = null, clientsTab = 'clients';
+const ITEM_TAG = { waiting: ['Waiting', ''], submitted: ['To review', 'warn2'], na: ['Says not applicable', 'warn2'], changes: ['Changes asked', 'bad'], accepted: ['Accepted', 'ok'] };
+const itemTag = (s) => `<span class="tag ${ITEM_TAG[s][1]}">${ITEM_TAG[s][0]}</span>`;
+const dueText = (d, open = true) => {
+  if (!d) return '<span class="m">No due date</span>';
+  const t = new Date(d + 'T12:00'), days = Math.round((t - new Date().setHours(12, 0, 0, 0)) / 864e5);
+  const s = t.toLocaleDateString([], { month: 'short', day: 'numeric', year: t.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+  if (!open) return esc(s);
+  return days < 0 ? `<span class="overdue">${esc(s)} · ${-days} day${days === -1 ? '' : 's'} late</span>` : days === 0 ? `<span class="overdue">Today</span>` : `${esc(s)} <span class="m">· in ${days} day${days === 1 ? '' : 's'}</span>`;
+};
+async function clientsView(m, get) {
+  if (clientId) return clientDetail(m, get);
+  const seg = `<div class="seg" role="tablist"><button role="tab" data-ct="clients" aria-selected="${clientsTab === 'clients'}">Clients</button><button role="tab" data-ct="board" aria-selected="${clientsTab !== 'clients'}">Open requests</button></div>`;
+  if (clientsTab === 'clients') {
+    const cs = await get('/api/clients');
+    m.innerHTML = pageHead('Clients', 'Each client has a private space to upload what you ask for and get what you share.', `${seg}<button class="p" id="newClient">New client</button>`)
+      + (cs.length ? `<table><thead><tr><th>Client</th><th class="hide-s">Contacts</th><th>Open requests</th><th class="hide-s">Next due</th><th class="hide-s">Last upload</th></tr></thead><tbody>
+        ${cs.map((c) => `<tr class="click" data-client="${c.id}"><td><a href="#" data-client="${c.id}">${esc(c.name)}</a></td><td class="m hide-s">${c.contacts || '<span class="tag warn">None yet</span>'}</td>
+          <td class="m">${c.open_requests || '–'}</td><td class="m hide-s">${c.next_due ? dueText(String(c.next_due).slice(0, 10)) : '–'}</td><td class="m hide-s">${c.last_upload ? dateCell(c.last_upload) : '–'}</td></tr>`).join('')}</tbody></table>`
+        : `<div class="empty"><b>No clients yet</b><span>Add a client, invite their contact, then send a list of the documents you need.</span><button class="p" id="newClient2">New client</button></div>`);
+  } else {
+    const st = clientsTab === 'board' ? 'open' : clientsTab;
+    const rs = await get(`/api/requests?status=${st}`);
+    m.innerHTML = pageHead('Requests', st === 'open' ? 'Every open request, late ones first.' : 'Requests where every item was accepted.',
+        `${seg}<label class="m">Show <select id="rsf" style="width:auto"><option value="board">Open</option><option value="complete">Completed</option></select></label>`)
+      + (rs.length ? `<table><thead><tr><th>Client</th><th>Request</th><th>Received</th><th class="hide-s">To review</th><th>${st === 'open' ? 'Due' : 'Completed'}</th><th class="hide-s">Last reminder</th></tr></thead><tbody>
+        ${rs.map((r) => `<tr class="click" data-client="${r.client_id}"><td><a href="#" data-client="${r.client_id}">${esc(r.client_name)}</a></td><td>${esc(r.title)}</td>
+          <td><span class="bar" aria-hidden="true"><i style="width:${r.total ? Math.round(100 * r.received / r.total) : 0}%"></i></span> <span class="m">${r.received} of ${r.total}</span></td>
+          <td class="hide-s">${r.waiting_review ? `<span class="tag warn2">${r.waiting_review}</span>` : '<span class="m">–</span>'}</td>
+          <td class="m">${st === 'open' ? dueText(r.due_at) : dateCell(r.completed_at)}</td><td class="m hide-s">${r.last_reminded_at ? dateCell(r.last_reminded_at) : '–'}</td></tr>`).join('')}</tbody></table>`
+        : `<div class="empty"><b>${st === 'open' ? 'No open requests' : 'Nothing completed yet'}</b><span>${st === 'open' ? 'Open a client and choose New request.' : 'A request completes when you accept every item.'}</span></div>`);
+    $('#rsf').value = clientsTab; $('#rsf').onchange = (e) => { clientsTab = e.target.value; render(); };
+  }
+  $$('[data-ct]').forEach((b) => b.onclick = () => { clientsTab = b.dataset.ct; render(); });
+  $$('[data-client]').forEach((el) => el.onclick = (e) => { e.preventDefault(); clientId = Number(el.dataset.client); render(); });
+  [$('#newClient'), $('#newClient2')].forEach((b) => b && (b.onclick = newClientDialog));
+}
+async function newClientDialog() {
+  const staff = me.is_admin ? (await api('/api/users')).filter((u) => u.id !== me.id) : [];
+  modal({ title: 'New client', submit: 'Create client',
+    body: field('name', 'Client name (a person or a business)', 'text', 'required maxlength="255"')
+      + (staff.length ? `<fieldset class="m"><legend>Who on your team looks after them? Admins always can.</legend>${staff.map((u) => `<label class="chk"><input type="checkbox" name="s${u.id}" value="${u.id}"> ${esc(u.name)}</label>`).join('')}</fieldset>` : ''),
+    onOk: async (v) => {
+      const staff_ids = Object.keys(v).filter((k) => /^s\d+$/.test(k)).map((k) => Number(v[k]));
+      const c = await api('/api/clients', { method: 'POST', body: { name: v.name, staff_ids } });
+      clientId = c.id; render();
+    } });
+}
+async function clientDetail(m, get) {
+  const c = await get(`/api/clients/${clientId}`);
+  const open = c.requests.filter((r) => r.status === 'open'), closed = c.requests.filter((r) => r.status !== 'open');
+  m.innerHTML = `<div class="pagehead"><nav class="path" aria-label="Back"><ol><li><a href="#" id="toClients">Clients</a></li></ol><h1>${esc(c.name)}</h1>
+      <p class="desc">Looked after by ${esc(c.staff.map((s) => s.name).join(', '))}${me.is_admin ? '' : ' and admins'}.</p></nav>
+      <button id="cMore" aria-haspopup="menu">More ▾</button><button id="addContact">Add contact</button><button class="p" id="newReq">New request</button></div>
+    ${!c.mail_configured ? '<div class="notice warn" role="status"><b>Email is not set up on this server,</b> so invites and reminders are not emailed. Copy the invite link from Contacts and send it yourself.</div>' : ''}
+    ${!c.contacts.length ? '<div class="notice" role="status">Add a contact first so someone at this client can sign in and upload.</div>' : ''}
+    <div id="prog" class="prog" role="status"></div>
+    <section aria-labelledby="hReq"><h2 id="hReq">Requests</h2>
+      ${open.length ? open.map(requestCard).join('') : '<p class="m">No open requests. Choose <b>New request</b> to ask for documents.</p>'}
+      ${closed.length ? `<details class="closed"><summary>${closed.length} completed or cancelled</summary>${closed.map(requestCard).join('')}</details>` : ''}</section>
+    <section aria-labelledby="hSh"><div class="sechead"><h2 id="hSh">Shared with client</h2><button id="shareUp">Upload files</button></div>
+      ${c.shared.length ? `<ul class="flist">${c.shared.map((f) => `<li>${iconFor(f)}<a href="/api/files/${f.id}/download">${esc(f.name)}</a><span class="m">${fmt(f.size)} · ${dateCell(f.updated_at || f.created_at)}</span></li>`).join('')}</ul>`
+        : '<p class="m">Files you put here (a finished return, a signed engagement letter) appear on the client’s page.</p>'}</section>
+    <section aria-labelledby="hCt"><h2 id="hCt">Contacts</h2>
+      ${c.contacts.length ? `<table><thead><tr><th>Name</th><th class="hide-s">Email</th><th>Status</th><th class="hide-s">Last signed in</th><th><span class="sr">Actions</span></th></tr></thead><tbody>
+      ${c.contacts.map((k) => `<tr><td>${esc(k.name)}</td><td class="m hide-s">${esc(k.email)}</td>
+        <td>${k.disabled ? '<span class="tag">Turned off</span>' : k.active ? '<span class="tag ok">Active</span>' : '<span class="tag warn2">Invited</span>'}</td>
+        <td class="m hide-s">${k.last_login_at ? dateCell(k.last_login_at) : 'Never'}</td>
+        <td class="acts"><button data-km="${k.id}" aria-label="Actions for ${esc(k.name)}">⋯</button></td></tr>`).join('')}</tbody></table>` : '<p class="m">No contacts yet.</p>'}</section>`;
+  $('#toClients').onclick = (e) => { e.preventDefault(); clientId = null; render(); };
+  $('#newReq').onclick = () => newRequestDialog(c);
+  $('#addContact').onclick = () => modal({ title: `Add a contact at ${c.name}`, submit: 'Add and invite',
+    body: field('name', 'Name', 'text', 'required') + field('email', 'Email', 'email', 'required') + '<span class="m">They get an email with a link to choose a password. The link works for 7 days.</span>',
+    onOk: async (v) => { const r = await api(`/api/clients/${c.id}/contacts`, { method: 'POST', body: v }); render(); if (!r.emailed) setTimeout(() => inviteLink(r.invite_url, v.name)); } });
+  $('#cMore').onclick = (e) => { e.stopPropagation(); menu(e.currentTarget, [
+    { label: 'Rename…', run: () => modal({ title: 'Rename client', submit: 'Save', body: field('name', 'Client name', 'text', `required value="${esc(c.name)}"`),
+        onOk: async (v) => { await api(`/api/clients/${c.id}`, { method: 'PATCH', body: { name: v.name } }); render(); } }) },
+    { label: 'Open in Files', run: () => { view = 'files'; folder = c.folder_id; clientId = null; render(); } },
+    { label: 'Archive client…', danger: true, run: () => modal({ title: `Archive ${c.name}?`, submit: 'Archive',
+        body: '<span class="m">Their contacts can no longer sign in and reminders stop. Their files stay in Files under Clients.</span>',
+        onOk: async () => { await api(`/api/clients/${c.id}`, { method: 'PATCH', body: { archived: true } }); clientId = null; render(); } }) }]); };
+  $('#shareUp').onclick = () => { folder = c.shared_folder_id; $('#picker').click(); };
+  const K = Object.fromEntries(c.contacts.map((k) => [k.id, k]));
+  $$('[data-km]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); const k = K[b.dataset.km]; menu(b, [
+    !k.disabled && { label: k.active ? 'Send a new set-up link' : 'Resend invite', run: async () => { const r = await api(`/api/contacts/${k.id}/invite`, { method: 'POST' }); r.emailed ? notify(`Invite emailed to ${k.email}.`) : inviteLink(r.invite_url, k.name); } },
+    { label: k.disabled ? 'Turn on access' : 'Turn off access', danger: !k.disabled, run: async () => { await api(`/api/contacts/${k.id}`, { method: 'PATCH', body: { disabled: !k.disabled } }); render(); } }]); });
+  $$('[data-review]').forEach((b) => b.onclick = () => {
+    const [id, decision] = b.dataset.review.split(':');
+    if (decision === 'accept') return api(`/api/request-items/${id}/review`, { method: 'POST', body: { decision } }).then(render).catch((err) => notify(err.message));
+    modal({ title: 'What needs to change?', submit: 'Send to client', body: '<label class="m">The client sees this note<textarea name="comment" required rows="3" maxlength="1000"></textarea></label>',
+      onOk: async (v) => { await api(`/api/request-items/${id}/review`, { method: 'POST', body: { decision, comment: v.comment } }); render(); } });
+  });
+  $$('[data-remind]').forEach((b) => b.onclick = async () => { const r = await api(`/api/requests/${b.dataset.remind}/remind`, { method: 'POST' }); notify(r.emailed ? 'Reminder sent.' : 'Email is not set up, so no reminder was sent.'); });
+  $$('[data-cancel]').forEach((b) => b.onclick = () => modal({ title: 'Cancel this request?', submit: 'Cancel request', cancel: 'Keep it', body: '<span class="m">The client no longer sees it. Files they already sent stay in Files.</span>',
+    onOk: async () => { await api(`/api/requests/${b.dataset.cancel}/cancel`, { method: 'POST' }); render(); } }));
+}
+function requestCard(r) {
+  const open = r.status === 'open';
+  return `<article class="req"><header><h3>${esc(r.title)}</h3><span class="m">${open ? `Due ${dueText(r.due_at)}` : r.status === 'complete' ? `Completed ${dateCell(r.completed_at)}` : 'Cancelled'} · sent by ${esc(r.created_by_name)}</span>
+    <span class="sp"></span>${open ? `<span class="m">${r.received} of ${r.total} received</span><button data-remind="${r.id}">Remind now</button><button data-cancel="${r.id}" class="ghost">Cancel</button>` : ''}</header>
+    <ul class="items">${r.items.map((i) => `<li><div class="il"><b>${esc(i.label)}</b>${i.note ? `<span class="m">${esc(i.note)}</span>` : ''}
+        ${i.files.map((f) => `<span class="file">${iconFor(f)}<a href="/api/files/${f.id}/download">${esc(f.name)}</a> <span class="m">${fmt(f.size)}${f.contact_name ? ` · from ${esc(f.contact_name)}` : ''} · ${dateCell(f.updated_at || f.created_at)}</span></span>`).join('')}
+        ${i.na_reason ? `<span class="quote">Not applicable: ${esc(i.na_reason)}</span>` : ''}${i.status === 'changes' && i.review_comment ? `<span class="quote">You asked: ${esc(i.review_comment)}</span>` : ''}</div>
+      <div class="ia">${itemTag(i.status)}${open && ['submitted', 'na'].includes(i.status) ? `<button data-review="${i.id}:changes">Needs changes</button><button class="p" data-review="${i.id}:accept">Accept</button>` : ''}</div></li>`).join('')}</ul></article>`;
+}
+function inviteLink(url, name) {
+  modal({ title: `Send this link to ${name}`, cancel: 'Done',
+    body: `<span class="m">Email isn't set up, so send it yourself, for example from your email. It works for 7 days and only once.</span><input readonly value="${esc(url)}" id="invUrl"><button type="button" id="invCopy">Copy link</button>` });
+  $('#invUrl').select();
+  $('#invCopy').onclick = async () => { try { await navigator.clipboard.writeText(url); $('#invCopy').textContent = 'Copied'; } catch { $('#invUrl').select(); } };
+}
+async function newRequestDialog(c) {
+  const templates = await api('/api/request-templates').catch(() => []);
+  const T = Object.fromEntries(templates.map((t) => [t.id, t]));
+  const due = new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10);
+  modal({ title: `New request for ${c.name}`, submit: 'Send request', wide: true,
+    body: (templates.length ? `<label class="m">Start from a template<select name="tpl" id="tpl"><option value="">None</option>${templates.map((t) => `<option value="${t.id}">${esc(t.name)} (${t.items.length})</option>`).join('')}</select></label>` : '')
+      + field('title', 'Title the client sees', 'text', 'required placeholder="2025 personal tax return"')
+      + `<label class="m">What do you need? One item per line. Add a note after a dash: <i>T4 slips - from every employer</i><textarea name="items" id="items" rows="7" required></textarea></label>`
+      + `<div class="row2">${field('due_at', 'Due date', 'date', `value="${due}"`)}<label class="chk"><input type="checkbox" name="reminders" checked> Email reminders (3 days before, on the day, then every 3 days)</label></div>`
+      + `<label class="chk"><input type="checkbox" name="save" id="saveT"> Save this list as a template</label>`,
+    onOk: async (v) => {
+      const items = String(v.items).split('\n').map((l) => l.trim()).filter(Boolean).map((l) => { const [label, ...n] = l.split(/\s+[-–—]\s+/); return { label, note: n.join(' - ') }; });
+      if (!items.length) throw new Error('Add at least one item.');
+      if (v.save) await api('/api/request-templates', { method: 'POST', body: { name: v.title, items } });
+      const r = await api(`/api/clients/${c.id}/requests`, { method: 'POST', body: { title: v.title, items, due_at: v.due_at, reminders: !!v.reminders } });
+      render();
+      if (!r.emailed && c.contacts.some((k) => k.active)) setTimeout(() => notify('Request saved. Email is not set up, so let the client know it is waiting for them.'));
+    } });
+  if ($('#tpl')) $('#tpl').onchange = (e) => { const t = T[e.target.value]; if (!t) return; $('#items').value = t.items.map((i) => i.label + (i.note ? ` - ${i.note}` : '')).join('\n'); const ti = $('[name=title]'); if (!ti.value) ti.value = t.name; };
+}
+
 // ---------- Activity ----------
 const ACT = { login: 'Signed in', login_failed: 'Failed sign-in', password_change: 'Changed their password', password_reset: 'Reset the password of',
   '2fa_on': 'Turned on two-step login', '2fa_off': 'Turned off two-step login', '2fa_reset': 'Reset two-step login for', backup_codes: 'Made new backup codes',
   user_add: 'Added member', user_remove: 'Removed member', upload: 'Uploaded', new_version: 'Uploaded a new version of', version_restore: 'Restored an older version of',
   download: 'Downloaded', zip_download: 'Downloaded as zip', rename: 'Renamed', move: 'Moved', delete: 'Moved to Trash', restore: 'Restored from Trash',
   purge: 'Deleted forever', folder_create: 'Created folder', access_change: 'Changed access to', share_create: 'Created a share link for',
-  share_revoke: 'Revoked a share link for', share_open: 'Downloaded via share link', team_create: 'Created team', team_update: 'Updated team', backup: 'Made a database backup' };
+  share_revoke: 'Revoked a share link for', share_open: 'Downloaded via share link', team_create: 'Created team', team_update: 'Updated team', backup: 'Made a database backup',
+  client_create: 'Added client', client_update: 'Updated client', contact_invite: 'Invited a contact at', contact_join: 'Contact set up their account at', contact_disable: 'Turned off a contact at',
+  contact_enable: 'Turned on a contact at', request_send: 'Sent a request to', request_cancel: 'Cancelled a request', request_remind: 'Sent a reminder for', request_complete: 'Completed a request from',
+  item_accept: 'Accepted an item from', item_changes: 'Asked for changes from', client_upload: 'Client uploaded to', client_na: 'Client marked an item not applicable at',
+  client_unlink: 'Client removed a file at', client_download: 'Client downloaded from' };
 const ACT_GROUPS = {
   'Files & folders': 'upload,new_version,version_restore,download,zip_download,rename,move,delete,restore,purge,folder_create',
   'Sharing': 'share_create,share_revoke,share_open',
   'Sign-ins & security': 'login,login_failed,password_change,password_reset,2fa_on,2fa_off,2fa_reset,backup_codes,access_change',
+  'Clients': 'client_create,client_update,contact_invite,contact_join,contact_disable,contact_enable,request_send,request_cancel,request_remind,request_complete,item_accept,item_changes,client_upload,client_na,client_unlink,client_download',
   'Members': 'user_add,user_remove', 'Deletions only': 'delete,purge', 'Failed sign-ins only': 'login_failed' };
 const ICON = { file: '<svg class="fi sm" aria-hidden="true"><use href="#i-file"/></svg>', folder: '<svg class="fi sm" aria-hidden="true"><use href="#i-folder"/></svg>', user: '', team: '' };
 let actFilter = {};
@@ -1068,6 +1226,7 @@ async function upload(items) {
     } catch (err) { errors.push(`${file.name}: ${err.message}`); }
   }
   if ($('#prog')) $('#prog').textContent = '';
+  if (view === 'clients') folder = 'root';
   render();
   if (errors.length) notify(`${errors.length} upload(s) failed — ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? '…' : ''}`);
   else if (versioned) notify(`${versioned} file(s) already existed and were saved as new versions.`);
@@ -1082,7 +1241,7 @@ function mountPickers() {
 };
 }
 
-api('/api/me').then((u) => { me = u; me.must_change_password ? passwordGate() : me.must_setup_2fa ? setupGate() : shell(); }).catch(() => loginView());
+api('/api/me').then((u) => { me = u; if (me.portal && location.hash === '#clients') { view = 'clients'; history.replaceState(null, '', '/'); } me.must_change_password ? passwordGate() : me.must_setup_2fa ? setupGate() : shell(); }).catch(() => loginView());
 </script>
 </body>
 </html>

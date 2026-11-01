@@ -37,6 +37,27 @@ Signed-out visitors to `/` see a landing page ("TeamDrive by Equawire", `public/
 
 The headline font (Bricolage Grotesque, SIL Open Font License, see `public/fonts/`) is served from your own server so visitors' browsers never contact Google.
 
+## Client portal (optional)
+
+Set `PORTAL=1` to add a **Clients** tab. Each client gets a private space where they upload the documents you ask for and download what you share with them. It is built for accountants, bookkeepers, law firms and agencies.
+
+- **Client spaces:** *Clients → New client* creates a restricted folder `Clients / <name>` with `From client` and `Shared with client` inside. Only admins, the creator and the staff you pick can see it. Everything a client uploads is an ordinary TeamDrive file, with versions, trash and backups.
+- **Contacts:** *Add contact* sends an invite link (valid 7 days, works once) so the person chooses their own password. Clients sign in at `/portal`. They see only their own requests and files; turning a contact off or archiving the client signs them out at once.
+- **Requests:** *New request* asks for a list of items with a due date. Clients upload against each item (or say it doesn't apply); staff **Accept** or ask for **Needs changes** with a note. The request completes when every item is accepted. Uploading a file with the same name again saves a new version; clients can't delete what they sent.
+- **Reminders:** emailed 3 days before the due date, on the day, then every 3 days while items are missing (at most 8). *Remind now* sends one by hand.
+- **Templates:** tick *Save this list as a template* to reuse a request.
+- **Open requests:** *Clients → Open requests* shows every open request, how much is in, what is waiting for review and what is late.
+
+### Email
+The portal sends invites, requests, reminders and "ready to review" notices. Set:
+
+```
+SMTP_URL=smtps://USER:PASSWORD@smtp.example.com:465
+MAIL_FROM=Your Firm <no-reply@yourdomain.com>
+```
+
+Any SMTP service works (Postmark, Amazon SES, Brevo, your mail host). Emails contain a sign-in link only, never documents. Without `SMTP_URL` nothing is emailed: the app shows the invite link so you can send it yourself, and says so on each client page.
+
 ## Backups
 
 The app backs up its database by itself, every night (after `BACKUP_HOUR`, default 2 AM server time) and shortly after start-up if the last backup is more than a day old. Each backup is one compressed SQL file in your storage bucket at `backups/<DB_NAME>/teamdrive-YYYY-MM-DD-HHMM.sql.gz`, kept for `BACKUP_KEEP_DAYS` (default 30; the newest 3 are always kept). It is written in Node, so it works without the `mysqldump` tool.

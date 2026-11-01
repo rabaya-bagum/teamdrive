@@ -14,6 +14,7 @@ const totp = require('./totp');
 const legal = require('./legal');
 const demo = require('./demo');
 const backup = require('./backup');
+const portal = require('./portal');
 // Show the Equawire marketing page at / for signed-out visitors. Set LANDING_PAGE=0 on clients' private copies.
 const LANDING = !['0', 'false', 'no'].includes(String(process.env.LANDING_PAGE ?? '1').toLowerCase());
 
@@ -66,7 +67,10 @@ const fmtBytes = (b) => (b >= GB ? `${(b / GB).toFixed(1)} GB` : b >= 1048576 ? 
 // ---------- Sessions & roles ----------
 // Bump SESSION_V to sign everyone out (2 = two-step login, 3 = teams).
 const SESSION_V = 3;
-const T = (req) => req.session.user.team_id; // every data query is limited to the signed-in user's team
+const T = (req) => req.session.user.team_id;
+// Files a client uploaded through the portal show the client's name as owner.
+const OWNER = portal.ENABLED ? "COALESCE(CONCAT(cc.name, ' (client)'), u.name) AS owner" : 'u.name AS owner';
+const OWNER_JOIN = portal.ENABLED ? 'LEFT JOIN client_contacts cc ON cc.id=f.contact_id' : ''; // every data query is limited to the signed-in user's team
 
 const auth = wrap(async (req, res, next) => {
   const u = req.session.user;
@@ -290,7 +294,7 @@ app.get('/api/me', auth, wrap(async (req, res) => {
   const [c] = await q('SELECT COUNT(*) AS n FROM backup_codes WHERE user_id=? AND used_at IS NULL', [u.id]);
   const [tm] = await q('SELECT trial_ends_at FROM teams WHERE id=?', [u.team_id]);
   const [st] = await q("SELECT COALESCE(SUM(size),0) AS b FROM files WHERE team_id=? AND uploaded_by=? AND status='ready'", [u.team_id, u.id]);
-  res.json({ ...req.session.user, my_storage: Number(st.b), team_name: u.team_name, trial_ends_at: u.is_admin ? tm.trial_ends_at : null, totp_enabled: !!u.totp_enabled, totp_required: requires2fa(u), backup_codes_left: c.n });
+  res.json({ ...req.session.user, portal: portal.ENABLED, my_storage: Number(st.b), team_name: u.team_name, trial_ends_at: u.is_admin ? tm.trial_ends_at : null, totp_enabled: !!u.totp_enabled, totp_required: requires2fa(u), backup_codes_left: c.n });
 }));
 
 app.post('/api/me/password', auth, wrap(async (req, res) => {
@@ -419,9 +423,9 @@ app.get('/api/folders/:id', auth, wrap(async (req, res) => {
     for (const c of acl.byId.values()) if (!c.deleted_at && acl.can(c.id) && c.parent_id != null) sub.set(c.parent_id, (sub.get(c.parent_id) || 0) + 1);
     for (const f of folders) f.items = (fileCounts.get(f.id) || 0) + (sub.get(f.id) || 0);
   }
-  const files = await q(`SELECT f.id, f.name, f.size, f.mime, f.created_at, COALESCE(f.updated_at, f.created_at) AS updated_at, u.name AS owner,
+  const files = await q(`SELECT f.id, f.name, f.size, f.mime, f.created_at, COALESCE(f.updated_at, f.created_at) AS updated_at, ${OWNER},
     (SELECT COUNT(*) FROM file_versions v WHERE v.file_id=f.id) AS versions
-    FROM files f JOIN users u ON u.id=f.uploaded_by
+    FROM files f JOIN users u ON u.id=f.uploaded_by ${OWNER_JOIN}
     WHERE f.team_id=? AND f.folder_id ${where} AND f.status='ready' AND f.deleted_at IS NULL`, p);
   const crumbs = [];
   for (let c = id; c !== null; ) { const f = acl.byId.get(c); crumbs.unshift({ id: f.id, name: f.name, restricted: !!f.restricted }); c = f.parent_id; }
@@ -441,9 +445,9 @@ app.get('/api/search', auth, wrap(async (req, res) => {
     folders: (await q('SELECT id, name, parent_id, restricted, created_at FROM folders WHERE team_id=? AND deleted_at IS NULL AND name LIKE ? LIMIT 200', [T(req), term]))
       .filter((f) => acl.visible(f.id)).slice(0, 50)
       .map((f) => ({ ...f, restricted: !!f.restricted, can_manage: acl.canManage(f.id) })),
-    files: (await q(`SELECT f.id, f.name, f.size, f.mime, f.folder_id, f.created_at, COALESCE(f.updated_at, f.created_at) AS updated_at, u.name AS owner,
+    files: (await q(`SELECT f.id, f.name, f.size, f.mime, f.folder_id, f.created_at, COALESCE(f.updated_at, f.created_at) AS updated_at, ${OWNER},
       (SELECT COUNT(*) FROM file_versions v WHERE v.file_id=f.id) AS versions
-      FROM files f JOIN users u ON u.id=f.uploaded_by
+      FROM files f JOIN users u ON u.id=f.uploaded_by ${OWNER_JOIN}
       WHERE f.team_id=? AND f.deleted_at IS NULL AND f.status='ready' AND f.name LIKE ? LIMIT 500`, [T(req), term]))
       .filter((f) => acl.visible(f.folder_id)).slice(0, 100),
   });
@@ -1024,6 +1028,10 @@ app.get('/demo', wrap(async (req, res) => {
   });
 }));
 
+if (portal.ENABLED) {
+  portal.mount(app, { auth, wrap, httpErr, cleanName, loadAcl, log, tooMany, addFail, fails, MAX_BYTES, BASE });
+  app.get('/portal', (req, res) => res.sendFile(path.join(PUBLIC, 'portal.html')));
+}
 app.get('/terms', (req, res) => res.send(legal.terms()));
 app.get('/privacy', (req, res) => res.send(legal.privacy()));
 // Signed-out visitors see the landing page; signed-in people go straight to their files.
@@ -1126,6 +1134,7 @@ async function migrate() {
     team_size VARCHAR(40) NOT NULL, message TEXT NULL, ip VARCHAR(64) NULL, handled_at DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
   await addColumn('access_requests', 'hosting', 'VARCHAR(60) NULL');
+  if (portal.ENABLED) await portal.migrate();
 }
 
 migrate()
