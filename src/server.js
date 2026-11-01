@@ -155,9 +155,12 @@ const cookieOf = (req, name) => {
 const USER_SQL = 'SELECT u.*, t.name AS team_name, t.disabled AS team_disabled FROM users u JOIN teams t ON t.id=u.team_id';
 const sessionUser = (u) => ({ v: SESSION_V, id: u.id, name: u.name, email: u.email, is_admin: !!u.is_admin, is_owner: !!u.is_owner, is_demo: !!u.is_demo,
   team_id: u.team_id, team_name: u.team_name, must_setup_2fa: requires2fa(u) && !u.totp_enabled && !u.is_demo });
-function startSession(req, res, u) {
+// remember=true keeps you signed in for 30 days; otherwise until the browser is closed.
+const REMEMBER_DAYS = 30;
+function startSession(req, res, u, remember) {
   req.session.regenerate((err) => {
     if (err) return res.status(500).json({ error: 'Server error' });
+    req.session.cookie.maxAge = remember ? REMEMBER_DAYS * 864e5 : null;
     req.session.user = sessionUser(u);
     log(req, 'login');
     res.json(req.session.user);
@@ -228,11 +231,11 @@ app.post('/api/login', wrap(async (req, res) => {
     // Password was right; now ask for the code. Nothing is unlocked until it's verified.
     return req.session.regenerate((err) => {
       if (err) return res.status(500).json({ error: 'Server error' });
-      req.session.pending2fa = { uid: u.id, at: Date.now() };
+      req.session.pending2fa = { uid: u.id, at: Date.now(), remember: !!req.body.remember };
       res.json({ needs2fa: true });
     });
   }
-  startSession(req, res, u);
+  startSession(req, res, u, !!req.body.remember);
 }));
 app.post('/api/login/2fa', wrap(async (req, res) => {
   const p = req.session.pending2fa;
@@ -249,7 +252,7 @@ app.post('/api/login/2fa', wrap(async (req, res) => {
   }
   fails.delete(key);
   if (req.body.trust) await trustDevice(res, u.id);
-  startSession(req, res, u);
+  startSession(req, res, u, !!p.remember);
 }));
 app.post('/api/logout', (req, res) => req.session.destroy(() => res.json({ ok: true })));
 app.get('/api/me', auth, wrap(async (req, res) => {
@@ -940,6 +943,7 @@ app.get('/demo', wrap(async (req, res) => {
   if (!u) return res.status(503).send('The demo is being reset. Please try again in a minute.');
   req.session.regenerate((err) => {
     if (err) return res.status(500).send('Server error');
+    req.session.cookie.maxAge = null; // demo visitors: until the browser closes
     req.session.user = sessionUser(u);
     res.redirect('/');
   });

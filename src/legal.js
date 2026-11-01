@@ -221,7 +221,7 @@ function privacy() {
 <p>TeamDrive uses only what it needs to work. We don't use advertising, analytics or tracking cookies.</p>
 <div class="wrap"><table>
 <tr><th>Name</th><th>Purpose</th><th>How long</th></tr>
-<tr><td>Session cookie (<code>connect.sid</code>)</td><td>Keeps you signed in</td><td>Up to 7 days, or until you sign out</td></tr>
+<tr><td>Session cookie (<code>connect.sid</code>)</td><td>Keeps you signed in</td><td>Until you close your browser, or 30 days if you tick "Keep me signed in". Signing out ends it straight away.</td></tr>
 <tr><td><code>td_trust</code></td><td>Remembers a device you marked "Trust this device", so you aren't asked for a two-step code each time</td><td>30 days, or until you change your password</td></tr>
 <tr><td>Browser storage (<code>td-sort</code>)</td><td>Remembers how you like file lists sorted</td><td>Until you clear your browser data</td></tr>
 </table></div>
