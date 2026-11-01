@@ -8,17 +8,22 @@
     "create-user": "node scripts/create-user.js",
     "restore-backup": "node scripts/restore-backup.js"
   },
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.600.0",
-    "@aws-sdk/s3-request-presigner": "^3.600.0",
+    "@aws-sdk/client-s3": "^3.1161.0",
+    "@aws-sdk/s3-request-presigner": "^3.1161.0",
     "archiver": "^7.0.1",
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "express-mysql-session": "^3.0.3",
     "express-session": "^1.18.0",
-    "mysql2": "^3.10.0",
+    "mysql2": "^3.24.6",
     "qrcode": "^1.5.4"
+  },
+  "overrides": {
+    "mysql2": "$mysql2"
   }
 }
