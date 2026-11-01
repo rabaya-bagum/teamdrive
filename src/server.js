@@ -375,13 +375,22 @@ app.get('/api/folders/:id', auth, wrap(async (req, res) => {
     WHERE f.team_id=? AND f.parent_id ${where} AND f.deleted_at IS NULL`, p))
     .filter((f) => acl.can(f.id))
     .map((f) => ({ ...f, restricted: !!f.restricted, can_manage: acl.canManage(f.id) }));
+  // How many items each folder holds (only subfolders this person can see).
+  if (folders.length) {
+    const fileCounts = new Map((await q("SELECT folder_id, COUNT(*) AS n FROM files WHERE team_id=? AND folder_id IN (?) AND status='ready' AND deleted_at IS NULL GROUP BY folder_id",
+      [T(req), folders.map((f) => f.id)])).map((r) => [r.folder_id, Number(r.n)]));
+    const sub = new Map();
+    for (const c of acl.byId.values()) if (!c.deleted_at && acl.can(c.id) && c.parent_id != null) sub.set(c.parent_id, (sub.get(c.parent_id) || 0) + 1);
+    for (const f of folders) f.items = (fileCounts.get(f.id) || 0) + (sub.get(f.id) || 0);
+  }
   const files = await q(`SELECT f.id, f.name, f.size, f.mime, f.created_at, COALESCE(f.updated_at, f.created_at) AS updated_at, u.name AS owner,
     (SELECT COUNT(*) FROM file_versions v WHERE v.file_id=f.id) AS versions
     FROM files f JOIN users u ON u.id=f.uploaded_by
     WHERE f.team_id=? AND f.folder_id ${where} AND f.status='ready' AND f.deleted_at IS NULL`, p);
   const crumbs = [];
   for (let c = id; c !== null; ) { const f = acl.byId.get(c); crumbs.unshift({ id: f.id, name: f.name, restricted: !!f.restricted }); c = f.parent_id; }
-  res.json({ folders, files, crumbs });
+  const [mc] = await q('SELECT COUNT(*) AS n FROM users WHERE team_id=?', [T(req)]);
+  res.json({ folders, files, crumbs, member_count: Number(mc.n) });
 }));
 
 app.get('/api/folders-all', auth, wrap(async (req, res) => {

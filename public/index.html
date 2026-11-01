@@ -11,6 +11,42 @@
 button,input,select{font:inherit}button{cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 12px;border-radius:8px}
 button:hover{background:var(--hover)}button:disabled{opacity:.45;cursor:not-allowed}button.p{background:var(--acc);border-color:var(--acc);color:#fff}button.p:hover{background:#1d4ed8}button.d{color:var(--danger)}
 button.on{border-color:var(--acc);color:var(--acc)}
+/* Section tabs: current tab is filled; keyboard focus is a separate outline ring */
+.tabs{display:flex;gap:2px;padding:3px;border-radius:10px;background:var(--bg);border:1px solid var(--line)}
+.tabs button{border:0;background:none;padding:6px 12px;border-radius:7px;color:var(--mute);font-weight:500}
+.tabs button:hover{color:var(--ink);background:var(--hover)}
+.tabs button[aria-current=page]{background:var(--card);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.12),inset 0 -2px 0 var(--acc)}
+header .ghost{border-color:transparent;background:none;color:var(--mute)}header .ghost:hover{color:var(--ink);background:var(--hover)}
+header .ghost.on{color:var(--ink);border-color:var(--line);background:var(--bg);font-weight:600}
+.vsep{width:1px;height:22px;background:var(--line);margin:0 4px}
+:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+/* Page title + path */
+.pagehead{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.path{flex:1;min-width:0}
+.path ol{list-style:none;margin:0 0 2px;padding:0;display:flex;flex-wrap:wrap;gap:4px;font-size:14px;color:var(--mute)}
+.path ol a{color:var(--mute);cursor:pointer;text-decoration:none}.path ol a:hover{color:var(--acc);text-decoration:underline}
+.path ol li+li::before{content:"/";margin-right:4px;color:var(--line)}
+.path h1{margin:0;font-size:22px;line-height:1.25;display:flex;align-items:center;gap:8px;word-break:break-word}
+/* Icons */
+.fi{width:20px;height:20px;flex:none}.fi.sm{width:16px;height:16px;vertical-align:-3px}.li{width:12px;height:12px;vertical-align:-1px;margin-right:3px}
+.nm{display:inline-flex;align-items:center;gap:10px;vertical-align:middle;flex-wrap:wrap}
+/* Rows */
+tbody tr:hover td,tr.sel td{background:var(--hover)}
+tr.sel td{background:color-mix(in srgb,var(--acc) 10%,var(--card))}
+td.ck,th.ck{width:36px;padding-right:0}td.ck input,th.ck input{width:18px;height:18px;cursor:pointer}
+.sorthint{font-size:12px;color:var(--mute);margin:6px 2px 0}
+/* Bulk bar */
+.bulk{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--card);border:1px solid var(--acc);border-radius:10px;padding:8px 12px;margin-bottom:12px}
+.bulk b{margin-right:auto}.bulk[hidden]{display:none}
+/* Empty state + drop target */
+.empty{border:2px dashed var(--line);border-radius:14px;padding:56px 20px;display:grid;justify-items:center;gap:10px;text-align:center;color:var(--mute);background:var(--card)}
+.empty svg{width:40px;height:40px;color:var(--acc)}.empty b{color:var(--ink);font-size:18px}
+main.dragging{outline:2px dashed var(--acc);outline-offset:-6px;border-radius:12px;background:color-mix(in srgb,var(--acc) 5%,transparent)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.sortbtn{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;font-weight:600}.sortbtn:hover{color:var(--ink)}
+@media (hover:none){.rc{display:none}}
+@media (max-width:700px){.vsep{display:none}.dropnote{display:none}}
+.dropnote{font-size:13px;color:var(--mute);margin:-6px 0 12px}
 input,select{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 10px;border-radius:8px;width:100%}
 input[type=checkbox]{width:auto}
 header{display:flex;gap:8px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--card);flex-wrap:wrap}
@@ -92,6 +128,21 @@ pre.codes{font:14px/1.9 ui-monospace,SFMono-Regular,Menlo,monospace;columns:2;ba
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2.2h8.4A1.5 1.5 0 0 1 21 8.7v9.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z" fill="#F3C969" stroke="#B88A22" stroke-width="1.2"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M6.5 3h7.8L19 7.7v12.8a.5.5 0 0 1-.5.5h-12a.5.5 0 0 1-.5-.5V3.5a.5.5 0 0 1 .5-.5z" fill="#fff" stroke="#7B8496" stroke-width="1.3"/><path d="M14 3v5h5" fill="none" stroke="#7B8496" stroke-width="1.3"/></symbol>
+  <symbol id="i-text" viewBox="0 0 24 24"><use href="#i-file"/><path d="M9 12h6M9 15h6M9 18h4" stroke="#9AA3B2" stroke-width="1.3"/></symbol>
+  <symbol id="i-pdf" viewBox="0 0 24 24"><use href="#i-file"/><rect x="7" y="13" width="10" height="5" rx="1" fill="#D93838"/><path d="M9 15.5h6" stroke="#fff" stroke-width="1.4"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><use href="#i-file"/><rect x="7" y="12" width="10" height="6.5" rx="1" fill="#2563EB"/><path d="M9 14.2h6M9 16.4h4" stroke="#fff" stroke-width="1.2"/></symbol>
+  <symbol id="i-sheet" viewBox="0 0 24 24"><use href="#i-file"/><rect x="7" y="12" width="10" height="6.5" rx="1" fill="#1E8E4E"/><path d="M12 12v6.5M7 15.2h10" stroke="#fff" stroke-width="1.1"/></symbol>
+  <symbol id="i-slides" viewBox="0 0 24 24"><use href="#i-file"/><rect x="7" y="12" width="10" height="6.5" rx="1" fill="#E07A1F"/><rect x="9" y="13.8" width="6" height="3" fill="#fff"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="1.5" fill="#fff" stroke="#7B8496" stroke-width="1.3"/><circle cx="9" cy="10" r="1.6" fill="#F3C969"/><path d="M4.5 17.5l5-5 3.5 3.5 2.5-2.5 4 4" fill="none" stroke="#2563EB" stroke-width="1.4"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2" fill="#fff" stroke="#7B8496" stroke-width="1.3"/><path d="M10 9.5v5l4.5-2.5z" fill="#7C3AED"/></symbol>
+  <symbol id="i-audio" viewBox="0 0 24 24"><use href="#i-file"/><path d="M10.5 17.5v-6l5-1.2v5.7" fill="none" stroke="#7C3AED" stroke-width="1.4"/><circle cx="9.5" cy="17.5" r="1.4" fill="#7C3AED"/><circle cx="14.5" cy="16" r="1.4" fill="#7C3AED"/></symbol>
+  <symbol id="i-zip" viewBox="0 0 24 24"><use href="#i-file"/><path d="M12 3v2M12 6.5v1.5M12 9.5v1.5M12 12.5v1.5" stroke="#7B8496" stroke-width="1.6"/><rect x="10.5" y="14.5" width="3" height="3.5" rx=".6" fill="#7B8496"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2" fill="currentColor"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+</svg>
 <div id="app"></div>
 <dialog id="dlg"></dialog>
 <script>
@@ -100,6 +151,29 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt = (b) => { b = Number(b); return b < 1024 ? b + ' B' : b < 1048576 ? (b/1024).toFixed(1) + ' KB' : b < 1073741824 ? (b/1048576).toFixed(1) + ' MB' : (b/1073741824).toFixed(2) + ' GB'; };
 const day = (d) => d ? new Date(d).toLocaleDateString() : '';
+// "just now", "5 min ago", "3 hours ago", "Yesterday", "4 days ago", "Oct 29", "Oct 29, 2025"
+function rel(d) {
+  if (!d) return '';
+  const t = new Date(d), s = (Date.now() - t) / 1000;
+  if (s < 60) return 'Just now';
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} hour${s < 7200 ? '' : 's'} ago`;
+  const days = Math.floor(s / 86400);
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return `${days} days ago`;
+  return t.toLocaleDateString([], t.getFullYear() === new Date().getFullYear() ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' });
+}
+const dateCell = (d) => d ? `<time datetime="${new Date(d).toISOString()}" title="${esc(new Date(d).toLocaleString([], { dateStyle: 'full', timeStyle: 'short' }))}">${esc(rel(d))}</time>` : '';
+function iconFor(f) {
+  const m = f.mime || '', n = (f.name || '').toLowerCase();
+  const id = m.startsWith('image/') ? 'image' : m.startsWith('video/') ? 'video' : m.startsWith('audio/') ? 'audio'
+    : m === 'application/pdf' || n.endsWith('.pdf') ? 'pdf'
+    : /\.(docx?|odt|rtf|pages)$/.test(n) ? 'doc' : /\.(xlsx?|ods|csv|numbers)$/.test(n) ? 'sheet' : /\.(pptx?|odp|key)$/.test(n) ? 'slides'
+    : /\.(zip|rar|7z|tar|gz)$/.test(n) ? 'zip' : m.startsWith('text/') || /\.(md|txt|json)$/.test(n) ? 'text' : 'file';
+  return `<svg class="fi" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+}
+const FOLDER_ICON = '<svg class="fi" aria-hidden="true"><use href="#i-folder"/></svg>';
+const LOCK = '<svg class="li" aria-hidden="true"><use href="#i-lock"/></svg>';
 const when = (d) => d ? new Date(d).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '';
 const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
 
@@ -133,15 +207,22 @@ const field = (name, label, type = 'text', extra = '') => `<label class="m">${es
 const notify = (msg) => modal({ title: msg, body: '', cancel: 'OK' });
 
 // ---------- Row menu ----------
-function menu(anchor, items) {
+function menu(anchor, items, at) {
   closeMenu();
   const m = document.createElement('div');
   m.className = 'menu'; m.id = 'menu';
   m.innerHTML = items.filter(Boolean).map((it, i) => `<button data-i="${i}" class="${it.danger ? 'd' : ''}">${esc(it.label)}</button>`).join('');
   document.body.appendChild(m);
-  const r = anchor.getBoundingClientRect();
-  m.style.top = `${window.scrollY + r.bottom + 4}px`;
-  m.style.left = `${Math.max(8, window.scrollX + r.right - m.offsetWidth)}px`;
+  if (at) {
+    m.style.top = `${window.scrollY + Math.min(at.y, innerHeight - m.offsetHeight - 8)}px`;
+    m.style.left = `${window.scrollX + Math.max(8, Math.min(at.x, innerWidth - m.offsetWidth - 8))}px`;
+  } else {
+    const r = anchor.getBoundingClientRect();
+    m.style.top = `${window.scrollY + r.bottom + 4}px`;
+    m.style.left = `${Math.max(8, window.scrollX + r.right - m.offsetWidth)}px`;
+  }
+  $('button', m)?.focus();
+  m.onkeydown = (e) => { if (e.key === 'Escape') { closeMenu(); anchor?.focus?.(); } };
   const list = items.filter(Boolean);
   $$('button', m).forEach((b) => b.onclick = () => { closeMenu(); list[b.dataset.i].run(); });
   setTimeout(() => document.addEventListener('click', closeMenu, { once: true }));
@@ -346,10 +427,16 @@ function shell() {
   mountPickers();
   if (location.pathname === '/login') history.replaceState(null, '', '/');
   $('#app').innerHTML = `<header><b>TeamDrive</b><span class="team hide-s" title="${esc(me.team_name)}">${esc(me.team_name)}</span>
-    <button data-v="files">Files</button><button data-v="shares">Shared links</button><button data-v="trash">Trash</button>${me.is_admin ? '<button data-v="users">Users</button><button data-v="activity">Activity</button>' : ''}${me.is_owner ? '<button data-v="teams">Teams</button>' : ''}
+    <nav class="tabs" aria-label="Sections"><button data-v="files">Files</button><button data-v="shares">Shared links</button><button data-v="trash">Trash</button></nav>
+    ${me.is_admin ? '<span class="vsep" aria-hidden="true"></span><button class="ghost" id="adminBtn" aria-haspopup="menu">Admin ▾</button>' : ''}
     <div class="sp"></div><span id="usage" class="hide-s"></span><input id="search" placeholder="Search files…">
     <button id="acct">${esc(me.name)} ▾</button></header>${trialBar()}<main id="main"></main>`;
-  $$('[data-v]').forEach((b) => b.onclick = () => { view = b.dataset.v; folder = 'root'; $('#search').value = ''; render(); });
+  const go = (v) => { view = v; folder = 'root'; $('#search').value = ''; render(); };
+  $$('[data-v]').forEach((b) => b.onclick = () => go(b.dataset.v));
+  if ($('#adminBtn')) $('#adminBtn').onclick = (e) => { e.stopPropagation(); menu(e.currentTarget, [
+    { label: 'Team members', run: () => go('users') },
+    { label: 'Activity', run: () => go('activity') },
+    me.is_owner && { label: 'Teams (owner)', run: () => go('teams') }]); };
   $('#acct').onclick = (e) => { e.stopPropagation(); menu(e.currentTarget, [
     !me.is_demo && { label: 'Change password', run: changePassword },
     !me.is_demo && { label: 'Two-step login', run: twoStepDialog },
@@ -362,7 +449,8 @@ function shell() {
 async function usage() {
   try {
     const s = await api('/api/stats'), u = $('#usage');
-    u.textContent = s.quota ? `${fmt(s.bytes)} of ${fmt(s.quota)} used` : `${fmt(s.bytes)} used · ${s.files} files`;
+    u.textContent = s.quota ? `${fmt(s.bytes)} of ${fmt(s.quota)} used` : `${fmt(s.bytes)} used in total`;
+    u.title = `${s.files} file${s.files === 1 ? '' : 's'} across all folders, including older versions in the storage total`;
     u.classList.toggle('warn', !!s.quota && s.bytes / s.quota >= 0.9);
   } catch {}
 }
@@ -374,44 +462,95 @@ const sorters = {
   date: (a, b) => new Date(a.updated_at || a.created_at || a.deleted_at) - new Date(b.updated_at || b.created_at || b.deleted_at),
 };
 const sorted = (arr) => [...arr].sort((a, b) => sorters[sort.key](a, b) * sort.dir || sorters.name(a, b));
-const th = (key, label, cls = '') => `<th class="s ${cls}" data-sort="${key}">${label}${sort.key === key ? (sort.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`;
+const th = (key, label, cls = '') => `<th class="${cls}" ${sort.key === key ? `aria-sort="${sort.dir > 0 ? 'ascending' : 'descending'}"` : ''}><button class="sortbtn" data-sort="${key}" title="Sort by ${label}">${label}${sort.key === key ? (sort.dir > 0 ? ' ▲' : ' ▼') : ''}</button></th>`;
 const PREVIEWABLE = /^(image\/(png|jpe?g|gif|webp|avif|bmp|svg\+xml)|video\/(mp4|webm|ogg|quicktime)|audio\/|application\/pdf|text\/|application\/(json|xml|javascript))/;
 
-function table(folders, files, { trash = false } = {}) {
-  const fr = sorted(folders).map((f) => `<tr><td class="n" data-open="${f.id}">📁 ${esc(f.name)}${f.restricted ? '<span class="tag">🔒 restricted</span>' : ''}</td>
-    <td class="m hide-s">${esc(f.owner || '')}</td><td class="m hide-s">—</td><td class="m hide-s">${day(f.created_at || f.deleted_at)}</td>
-    <td class="acts"><button data-fmenu="${f.id}" aria-label="Actions">⋯</button></td></tr>`).join('');
-  const fl = sorted(files).map((f) => `<tr><td class="n" data-file="${f.id}">📄 ${esc(f.name)}${f.versions > 0 ? `<span class="tag">${Number(f.versions) + 1} versions</span>` : ''}</td>
-    <td class="m hide-s">${esc(f.owner || '')}</td><td class="m hide-s">${fmt(f.size)}</td><td class="m hide-s">${day(f.updated_at || f.deleted_at)}</td>
-    <td class="acts"><button data-menu="${f.id}" aria-label="Actions">⋯</button></td></tr>`).join('');
-  return `<table><tr>${th('name', 'Name')}<th class="hide-s">Owner</th>${th('size', 'Size', 'hide-s')}${th('date', trash ? 'Deleted' : 'Modified', 'hide-s')}<th></th></tr>
-    ${fr + fl || `<tr><td colspan="5" class="m">${trash ? 'Trash is empty.' : 'Nothing here yet.'}</td></tr>`}</table>`;
+function table(folders, files, { trash = false, select = false, owner = true } = {}) {
+  const ck = (kind, id, name) => select ? `<td class="ck"><input type="checkbox" data-pick="${kind}:${id}" aria-label="Select ${esc(name)}"></td>` : '';
+  const fr = sorted(folders).map((f) => `<tr data-row="folder:${f.id}">${ck('folder', f.id, f.name)}
+    <td class="n" data-open="${f.id}"><span class="nm">${FOLDER_ICON}<span>${esc(f.name)}</span>${f.restricted ? `<span class="tag">${LOCK}restricted</span>` : ''}</span></td>
+    ${owner ? `<td class="m hide-s">${esc(f.owner || '')}</td>` : ''}<td class="m hide-s">${f.items == null ? '—' : `${f.items} item${f.items === 1 ? '' : 's'}`}</td>
+    <td class="m hide-s">${dateCell(f.created_at || f.deleted_at)}</td>
+    <td class="acts"><button data-fmenu="${f.id}" aria-label="Actions for ${esc(f.name)}">⋯</button></td></tr>`).join('');
+  const fl = sorted(files).map((f) => `<tr data-row="file:${f.id}">${ck('file', f.id, f.name)}
+    <td class="n" data-file="${f.id}"><span class="nm">${iconFor(f)}<span>${esc(f.name)}</span>${f.versions > 0 ? `<span class="tag">${Number(f.versions) + 1} versions</span>` : ''}</span></td>
+    ${owner ? `<td class="m hide-s">${esc(f.owner || '')}</td>` : ''}<td class="m hide-s">${fmt(f.size)}</td>
+    <td class="m hide-s">${dateCell(f.updated_at || f.deleted_at)}</td>
+    <td class="acts"><button data-menu="${f.id}" aria-label="Actions for ${esc(f.name)}">⋯</button></td></tr>`).join('');
+  const cols = 4 + (select ? 1 : 0) + (owner ? 1 : 0);
+  return `<table><thead><tr>${select ? '<th class="ck"><input type="checkbox" id="pickAll" aria-label="Select all"></th>' : ''}${th('name', 'Name')}${owner ? '<th class="hide-s">Owner</th>' : ''}${th('size', 'Size', 'hide-s')}${th('date', trash ? 'Deleted' : 'Modified', 'hide-s')}<th><span class="sr">Actions</span></th></tr></thead>
+    <tbody>${fr + fl || `<tr><td colspan="${cols}" class="m">${trash ? 'Trash is empty.' : 'Nothing here yet.'}</td></tr>`}</tbody></table>`;
 }
+
+const folderItems = (f) => [
+  { label: 'Open', run: () => { view = 'files'; folder = String(f.id); $('#search').value = ''; render(); } },
+  { label: 'Download as zip', run: () => { location.href = `/api/folders/${f.id}/zip`; } },
+  { label: 'Move…', run: () => moveItem('folder', f.id) },
+  { label: 'Rename…', run: () => rename('folder', f) },
+  f.can_manage && { label: f.restricted ? 'Access…' : 'Restrict access…', run: () => accessDialog(f) },
+  { label: 'Delete', danger: true, run: () => del('folder', f) }];
+const fileItems = (f) => [
+  PREVIEWABLE.test(f.mime) && { label: 'Preview', run: () => preview(f) },
+  { label: 'Download', run: () => { location.href = `/api/files/${f.id}/download`; } },
+  { label: 'Share link…', run: () => (me.is_demo ? demoNote('Sharing links') : share(f)) },
+  { label: 'Versions…', run: () => versions(f) },
+  { label: 'Move…', run: () => moveItem('file', f.id) },
+  { label: 'Rename…', run: () => rename('file', f) },
+  { label: 'Delete', danger: true, run: () => del('file', f) }];
 
 function bindTable(folders, files, { trash = false } = {}) {
   const F = Object.fromEntries(folders.map((f) => [f.id, f])), G = Object.fromEntries(files.map((f) => [f.id, f]));
+  const itemsFor = (kind, id) => kind === 'folder' ? (trash ? trashItems('folder', F[id]) : folderItems(F[id])) : (trash ? trashItems('file', G[id]) : fileItems(G[id]));
   $$('[data-sort]').forEach((h) => h.onclick = () => {
     sort = sort.key === h.dataset.sort ? { key: sort.key, dir: -sort.dir } : { key: h.dataset.sort, dir: h.dataset.sort === 'name' ? 1 : -1 };
     store.set('td-sort', sort); render();
   });
-  $$('[data-open]').forEach((el) => el.onclick = () => { if (trash) return; view = 'files'; folder = el.dataset.open; $('#search').value = ''; render(); });
+  $$('[data-open]').forEach((el) => el.onclick = (e) => { e.preventDefault(); if (trash) return; view = 'files'; folder = el.dataset.open; $('#search').value = ''; render(); });
   $$('[data-file]').forEach((el) => el.onclick = () => { if (trash) return; openFile(G[el.dataset.file]); });
-  $$('[data-fmenu]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); const f = F[b.dataset.fmenu];
-    menu(b, trash ? trashItems('folder', f) : [
-      { label: 'Download as zip', run: () => { location.href = `/api/folders/${f.id}/zip`; } },
-      { label: 'Move…', run: () => moveItem('folder', f.id) },
-      { label: 'Rename…', run: () => rename('folder', f) },
-      f.can_manage && { label: f.restricted ? '🔒 Access…' : 'Restrict access…', run: () => accessDialog(f) },
-      { label: 'Delete', danger: true, run: () => del('folder', f) }]); });
-  $$('[data-menu]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); const f = G[b.dataset.menu];
-    menu(b, trash ? trashItems('file', f) : [
-      PREVIEWABLE.test(f.mime) && { label: 'Preview', run: () => preview(f) },
-      { label: 'Download', run: () => { location.href = `/api/files/${f.id}/download`; } },
-      { label: 'Share link…', run: () => (me.is_demo ? demoNote('Sharing links') : share(f)) },
-      { label: 'Versions…', run: () => versions(f) },
-      { label: 'Move…', run: () => moveItem('file', f.id) },
-      { label: 'Rename…', run: () => rename('file', f) },
-      { label: 'Delete', danger: true, run: () => del('file', f) }]); });
+  $$('[data-fmenu]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); menu(b, itemsFor('folder', Number(b.dataset.fmenu))); });
+  $$('[data-menu]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); menu(b, itemsFor('file', Number(b.dataset.menu))); });
+  // Right-click a row for the same actions
+  $$('tr[data-row]').forEach((tr) => tr.oncontextmenu = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const [kind, id] = tr.dataset.row.split(':');
+    menu($('.acts button', tr), itemsFor(kind, Number(id)), { x: e.clientX, y: e.clientY });
+  });
+  // Multi-select
+  const picks = $$('[data-pick]');
+  if (!picks.length) return;
+  const bar = $('#bulk');
+  const chosen = () => picks.filter((c) => c.checked).map((c) => { const [kind, id] = c.dataset.pick.split(':'); return { kind, id: Number(id), item: kind === 'folder' ? F[id] : G[id] }; });
+  const sync = () => {
+    const sel = chosen();
+    picks.forEach((c) => c.closest('tr').classList.toggle('sel', c.checked));
+    if ($('#pickAll')) { $('#pickAll').checked = sel.length === picks.length; $('#pickAll').indeterminate = sel.length > 0 && sel.length < picks.length; }
+    if (!bar) return;
+    bar.hidden = !sel.length;
+    if (!sel.length) return;
+    bar.innerHTML = `<b>${sel.length} selected</b><button id="bMove">Move…</button><button id="bDel" class="d">Delete</button><button id="bClear">Clear selection</button>`;
+    $('#bClear').onclick = () => { picks.forEach((c) => (c.checked = false)); sync(); };
+    $('#bMove').onclick = () => bulkMove(chosen());
+    $('#bDel').onclick = () => bulkDelete(chosen());
+  };
+  picks.forEach((c) => c.onchange = sync);
+  if ($('#pickAll')) $('#pickAll').onchange = (e) => { picks.forEach((c) => (c.checked = e.target.checked)); sync(); };
+}
+async function bulkRun(sel, fn, verb) {
+  const failed = [];
+  for (const s of sel) { try { await fn(s); } catch (err) { failed.push(`${s.item.name}: ${err.message}`); } }
+  render();
+  if (failed.length) setTimeout(() => notify(`${failed.length} item${failed.length === 1 ? '' : 's'} could not be ${verb}. ${failed.slice(0, 3).join('; ')}`));
+}
+async function bulkMove(sel) {
+  const opts = await folderOptions(sel.filter((s) => s.kind === 'folder').map((s) => s.id));
+  modal({ title: `Move ${sel.length} item${sel.length === 1 ? '' : 's'} to…`, submit: 'Move',
+    body: `<label class="m">Destination folder<select name="to">${opts.map((o) => `<option value="${o.value}">${esc(o.label)}</option>`).join('')}</select></label>`,
+    onOk: async (v) => { await bulkRun(sel, (s) => api(`/api/${s.kind === 'folder' ? 'folders' : 'files'}/${s.id}`, { method: 'PATCH', body: s.kind === 'folder' ? { parent_id: v.to } : { folder_id: v.to } }), 'moved'); } });
+}
+function bulkDelete(sel) {
+  modal({ title: `Move ${sel.length} item${sel.length === 1 ? '' : 's'} to Trash?`, submit: 'Move to Trash',
+    body: '<span class="m">Folders go with everything inside them. You can restore anything from Trash.</span>',
+    onOk: async () => { await bulkRun(sel, (s) => api(`/api/${s.kind === 'folder' ? 'folders' : 'files'}/${s.id}`, { method: 'DELETE' }), 'moved to Trash'); } });
 }
 const trashItems = (type, item) => [
   { label: 'Restore', run: async () => { const r = await api(`/api/trash/${type}/${item.id}/restore`, { method: 'POST' });
@@ -451,7 +590,8 @@ async function folderOptions(excludeId) {
   const all = await api('/api/folders-all');
   const byId = Object.fromEntries(all.map((f) => [f.id, f]));
   const pathOf = (f) => { const p = []; for (let c = f; c; c = byId[c.parent_id]) p.unshift(c.name); return p.join(' / '); };
-  const inside = (f) => { for (let c = f; c; c = byId[c.parent_id]) if (c.id === excludeId) return true; return false; };
+  const ex = new Set([].concat(excludeId ?? []).map(Number));
+  const inside = (f) => { for (let c = f; c; c = byId[c.parent_id]) if (ex.has(c.id)) return true; return false; };
   return [{ value: 'root', label: 'My team (top level)' },
     ...all.filter((f) => !inside(f)).map((f) => ({ value: f.id, label: pathOf(f) })).sort((a, b) => a.label.localeCompare(b.label))];
 }
@@ -534,30 +674,40 @@ function resetPassword(u) {
 // ---------- Views ----------
 async function render() {
   closeMenu();
-  $$('[data-v]').forEach((b) => b.classList.toggle('on', b.dataset.v === view));
+  $$('[data-v]').forEach((b) => { if (b.dataset.v === view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+  if ($('#adminBtn')) $('#adminBtn').classList.toggle('on', ['users', 'activity', 'teams'].includes(view));
   usage();
   const m = $('#main');
+  m.ondragenter = m.ondragover = m.ondragleave = m.ondrop = null; m.classList.remove('dragging');
   try {
     if (view === 'files') {
       const d = await api(`/api/folders/${folder}`);
-      const crumbs = [`<a data-open="root">My team</a>`, ...d.crumbs.map((c) => `<a data-open="${c.id}">${esc(c.name)}${c.restricted ? ' 🔒' : ''}</a>`)].join('<span>/</span>');
-      m.innerHTML = `<div class="bar"><div class="crumbs" style="flex:1">${crumbs}</div>
-        ${folder !== 'root' ? '<button id="zip" class="hide-s">Download zip</button>' : ''}<button id="nf">New folder</button><button class="p" id="up">Upload ▾</button></div>
-        <div id="drop">Drag files or folders here to upload</div><div id="prog" class="prog"></div>${table(d.folders, d.files)}`;
+      const here = d.crumbs[d.crumbs.length - 1];
+      const trail = [{ id: 'root', name: 'Files' }, ...d.crumbs.slice(0, -1)];
+      const empty = !d.folders.length && !d.files.length;
+      m.innerHTML = `<div class="pagehead"><nav class="path" aria-label="Folder path">
+          ${here ? `<ol>${trail.map((c) => `<li><a href="#" data-open="${c.id}">${esc(c.name)}</a></li>`).join('')}</ol>` : ''}
+          <h1>${here ? `${esc(here.name)}${here.restricted ? `<span class="tag">${LOCK}restricted</span>` : ''}` : 'Files'}</h1></nav>
+        ${here ? '<button id="zip" class="hide-s">Download zip</button>' : ''}<button id="nf">New folder</button><button id="upd" class="hide-s">Upload folder</button><button class="p" id="up">Upload files</button></div>
+        <div class="bulk" id="bulk" hidden role="region" aria-label="Selected items"></div><div id="prog" class="prog" role="status"></div>
+        ${empty ? `<div class="empty"><svg aria-hidden="true"><use href="#i-upload"/></svg><b>This folder is empty</b><span>Drag files or folders here, or</span><button class="p" id="up2">Upload files</button></div>`
+          : `<p class="dropnote">Drag files or folders anywhere on this page to upload them here.</p>${table(d.folders, d.files, { select: true, owner: d.member_count > 1 })}<p class="sorthint">Click a column name to sort.<span class="rc"> Right-click a row for more actions.</span></p>`}`;
       bindTable(d.folders, d.files);
       $('#zip') && ($('#zip').onclick = () => { location.href = `/api/folders/${folder}/zip`; });
       $('#nf').onclick = () => modal({ title: 'New folder', submit: 'Create', body: field('name', 'Folder name', 'text', 'required'),
         onOk: async (v) => { await api('/api/folders', { method: 'POST', body: { name: v.name, parent_id: folder } }); render(); } });
-      $('#up').onclick = (e) => { e.stopPropagation(); menu(e.currentTarget, [
-        { label: 'Upload files', run: () => $('#picker').click() },
-        { label: 'Upload a folder', run: () => $('#dirPicker').click() }]); };
-      const drop = $('#drop');
-      drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('on'); };
-      drop.ondragleave = () => drop.classList.remove('on');
-      drop.ondrop = async (e) => { e.preventDefault(); drop.classList.remove('on'); upload(await droppedFiles(e.dataTransfer)); };
+      $('#up').onclick = () => $('#picker').click();
+      $('#upd').onclick = () => $('#dirPicker').click();
+      $('#up2') && ($('#up2').onclick = () => $('#picker').click());
+      // The whole page is a drop target while you're in a folder
+      let depth = 0;
+      m.ondragenter = (e) => { if (![...(e.dataTransfer?.types || [])].includes('Files')) return; e.preventDefault(); depth++; m.classList.add('dragging'); };
+      m.ondragover = (e) => { if ([...(e.dataTransfer?.types || [])].includes('Files')) e.preventDefault(); };
+      m.ondragleave = () => { if (--depth <= 0) { depth = 0; m.classList.remove('dragging'); } };
+      m.ondrop = async (e) => { e.preventDefault(); depth = 0; m.classList.remove('dragging'); upload(await droppedFiles(e.dataTransfer)); };
     } else if (view === 'search') {
       const d = await api(`/api/search?q=${encodeURIComponent($('#search').value)}`);
-      m.innerHTML = `<div class="bar"><b>Search results</b></div>${table(d.folders, d.files)}`;
+      m.innerHTML = `<div class="pagehead"><div class="path"><h1>Search results</h1></div></div><div class="bulk" id="bulk" hidden role="region" aria-label="Selected items"></div>${table(d.folders, d.files, { select: true })}`;
       bindTable(d.folders, d.files);
     } else if (view === 'trash') {
       const d = await api('/api/trash');
@@ -618,7 +768,7 @@ const ACT_GROUPS = {
   'Sharing': 'share_create,share_revoke,share_open',
   'Sign-ins & security': 'login,login_failed,password_change,password_reset,2fa_on,2fa_off,2fa_reset,backup_codes,access_change',
   'Members': 'user_add,user_remove', 'Deletions only': 'delete,purge', 'Failed sign-ins only': 'login_failed' };
-const ICON = { file: '📄', folder: '📁', user: '👤', team: '🏢' };
+const ICON = { file: '<svg class="fi sm" aria-hidden="true"><use href="#i-file"/></svg>', folder: '<svg class="fi sm" aria-hidden="true"><use href="#i-folder"/></svg>', user: '', team: '' };
 let actFilter = {};
 async function activityView(m) {
   const members = await api('/api/users');
