@@ -42,7 +42,7 @@ const httpErr = (status, message) => Object.assign(new Error(message), { status 
 const cleanName = (s) => String(s || '').replace(/[\/\\\0]/g, '').trim().slice(0, 255);
 const idOrNull = (v) => (v === null || v === undefined || v === '' || v === 'root' ? null : Number(v));
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const fmtBytes = (b) => (b >= GB ? `${(b / GB).toFixed(1)} GB` : `${Math.round(b / 1048576)} MB`);
+const fmtBytes = (b) => (b >= GB ? `${(b / GB).toFixed(1)} GB` : b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : b >= 1024 ? `${Math.round(b / 1024)} KB` : `${b} bytes`);
 
 // ---------- Sessions & roles ----------
 // Bump SESSION_V to sign everyone out (2 = two-step login, 3 = teams).
@@ -319,8 +319,11 @@ app.get('/api/members', auth, wrap(async (req, res) => {
   res.json(await q('SELECT id, name FROM users WHERE team_id=? ORDER BY name', [T(req)]));
 }));
 app.get('/api/users', auth, admin, wrap(async (req, res) => {
-  res.json((await q('SELECT id, email, name, is_admin, is_owner, totp_enabled, created_at FROM users WHERE team_id=? ORDER BY name', [T(req)]))
-    .map((u) => ({ ...u, is_admin: !!u.is_admin, is_owner: !!u.is_owner, totp_enabled: !!u.totp_enabled, totp_required: requires2fa(u) })));
+  res.json((await q(`SELECT u.id, u.email, u.name, u.is_admin, u.is_owner, u.totp_enabled, u.created_at,
+      (SELECT MAX(a.created_at) FROM activity_log a WHERE a.team_id=u.team_id AND a.user_id=u.id AND a.action='login') AS last_active,
+      (SELECT COALESCE(SUM(f.size),0) FROM files f WHERE f.team_id=u.team_id AND f.uploaded_by=u.id AND f.status='ready') AS storage
+    FROM users u WHERE u.team_id=? ORDER BY u.name`, [T(req)]))
+    .map((u) => ({ ...u, storage: Number(u.storage), is_admin: !!u.is_admin, is_owner: !!u.is_owner, totp_enabled: !!u.totp_enabled, totp_required: requires2fa(u) })));
 }));
 app.post('/api/users', auth, admin, wrap(async (req, res) => {
   const { email, name, password, is_admin } = req.body;
@@ -680,7 +683,7 @@ app.get('/api/trash', auth, wrap(async (req, res) => {
   const acl = await loadAcl(req.session.user);
   res.json({
     folders: (await q('SELECT id, name, deleted_at FROM folders WHERE team_id=? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC', [T(req)])).filter((f) => acl.can(f.id)),
-    files: (await q('SELECT id, name, size, folder_id, deleted_at FROM files WHERE team_id=? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC', [T(req)])).filter((f) => acl.can(f.folder_id)),
+    files: (await q('SELECT id, name, size, mime, folder_id, deleted_at FROM files WHERE team_id=? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC', [T(req)])).filter((f) => acl.can(f.folder_id)),
   });
 }));
 // If the item's parent folder is still in Trash, restore it to the top level so it doesn't vanish.

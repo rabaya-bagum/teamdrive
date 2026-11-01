@@ -6,7 +6,7 @@
 <title>TeamDrive</title>
 <style>
 :root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--mute:#6b7280;--line:#e5e7eb;--acc:#2563eb;--danger:#d93838;--hover:#f1f3f7}
-@media (prefers-color-scheme:dark){:root{--bg:#111318;--card:#1a1d24;--ink:#e8eaf0;--mute:#9aa1ad;--line:#2a2e38;--acc:#5b8cff;--hover:#22262f}:root button.p{color:#0f1626}:root button.p:hover{background:#82a6ff}:root .autherr{color:#ffb4b4}.spin{border-color:rgba(15,22,38,.35);border-top-color:#0f1626}}
+@media (prefers-color-scheme:dark){:root{--bg:#111318;--card:#1a1d24;--ink:#e8eaf0;--mute:#9aa1ad;--line:#2a2e38;--acc:#5b8cff;--hover:#22262f;--danger:#ff7b7b}.notice.warn a{color:#a9c1ff}:root button.p{color:#0f1626}:root button.p:hover{background:#82a6ff}:root .autherr{color:#ffb4b4}.spin{border-color:rgba(15,22,38,.35);border-top-color:#0f1626}}
 *{box-sizing:border-box}body{margin:0;font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
 button,input,select{font:inherit}button{cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 12px;border-radius:8px}
 button:hover{background:var(--hover)}button:disabled{opacity:.45;cursor:not-allowed}button.p{background:var(--acc);border-color:var(--acc);color:#fff}button.p:hover{background:#1d4ed8}button.d{color:var(--danger)}
@@ -46,6 +46,16 @@ main.dragging{outline:2px dashed var(--acc);outline-offset:-6px;border-radius:12
 .sortbtn{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;font-weight:600}.sortbtn:hover{color:var(--ink)}
 @media (hover:none){.rc{display:none}}
 @media (max-width:700px){.vsep{display:none}.dropnote{display:none}}
+.path .desc{margin:4px 0 0;color:var(--mute);font-size:14px;max-width:70ch}
+h2.sub{font-size:16px;margin:8px 0 10px}
+.loading{color:var(--mute);padding:40px 0;text-align:center}
+.notice{border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:14px;border:1px solid var(--line);background:var(--card)}
+.notice.warn{border-color:#e7b85c;background:color-mix(in srgb,#f3c969 18%,var(--card))}.notice a{color:var(--acc)}
+.filters label{display:grid;gap:4px;font-size:12px;font-weight:600;color:var(--mute)}
+.filters label>*{font-weight:400;font-size:14px}
+.tag.bad{color:#a61b1b;border-color:#e6a0a0;background:color-mix(in srgb,#d93838 8%,var(--card))}
+.tag.ok{color:#14532d;border-color:#9fd3ae;background:color-mix(in srgb,#1e8e4e 10%,var(--card))}
+@media (prefers-color-scheme:dark){.tag.bad{color:#ffb4b4;border-color:#7a3a3a}.tag.ok{color:#b7f0c8;border-color:#2f6b45}}
 .dropnote{font-size:13px;color:var(--mute);margin:-6px 0 12px}
 input,select{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 10px;border-radius:8px;width:100%}
 input[type=checkbox]{width:auto}
@@ -471,12 +481,12 @@ function table(folders, files, { trash = false, select = false, owner = true } =
     <td class="n" data-open="${f.id}"><span class="nm">${FOLDER_ICON}<span>${esc(f.name)}</span>${f.restricted ? `<span class="tag">${LOCK}restricted</span>` : ''}</span></td>
     ${owner ? `<td class="m hide-s">${esc(f.owner || '')}</td>` : ''}<td class="m hide-s">${f.items == null ? '—' : `${f.items} item${f.items === 1 ? '' : 's'}`}</td>
     <td class="m hide-s">${dateCell(f.created_at || f.deleted_at)}</td>
-    <td class="acts"><button data-fmenu="${f.id}" aria-label="Actions for ${esc(f.name)}">⋯</button></td></tr>`).join('');
+    <td class="acts">${trash ? `<button data-restore="folder:${f.id}">Restore</button> ` : ''}<button data-fmenu="${f.id}" aria-label="Actions for ${esc(f.name)}">⋯</button></td></tr>`).join('');
   const fl = sorted(files).map((f) => `<tr data-row="file:${f.id}">${ck('file', f.id, f.name)}
     <td class="n" data-file="${f.id}"><span class="nm">${iconFor(f)}<span>${esc(f.name)}</span>${f.versions > 0 ? `<span class="tag">${Number(f.versions) + 1} versions</span>` : ''}</span></td>
     ${owner ? `<td class="m hide-s">${esc(f.owner || '')}</td>` : ''}<td class="m hide-s">${fmt(f.size)}</td>
     <td class="m hide-s">${dateCell(f.updated_at || f.deleted_at)}</td>
-    <td class="acts"><button data-menu="${f.id}" aria-label="Actions for ${esc(f.name)}">⋯</button></td></tr>`).join('');
+    <td class="acts">${trash ? `<button data-restore="file:${f.id}">Restore</button> ` : ''}<button data-menu="${f.id}" aria-label="Actions for ${esc(f.name)}">⋯</button></td></tr>`).join('');
   const cols = 4 + (select ? 1 : 0) + (owner ? 1 : 0);
   return `<table><thead><tr>${select ? '<th class="ck"><input type="checkbox" id="pickAll" aria-label="Select all"></th>' : ''}${th('name', 'Name')}${owner ? '<th class="hide-s">Owner</th>' : ''}${th('size', 'Size', 'hide-s')}${th('date', trash ? 'Deleted' : 'Modified', 'hide-s')}<th><span class="sr">Actions</span></th></tr></thead>
     <tbody>${fr + fl || `<tr><td colspan="${cols}" class="m">${trash ? 'Trash is empty.' : 'Nothing here yet.'}</td></tr>`}</tbody></table>`;
@@ -509,6 +519,11 @@ function bindTable(folders, files, { trash = false } = {}) {
   $$('[data-file]').forEach((el) => el.onclick = () => { if (trash) return; openFile(G[el.dataset.file]); });
   $$('[data-fmenu]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); menu(b, itemsFor('folder', Number(b.dataset.fmenu))); });
   $$('[data-menu]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); menu(b, itemsFor('file', Number(b.dataset.menu))); });
+  $$('[data-restore]').forEach((b) => b.onclick = async () => {
+    const [kind, id] = b.dataset.restore.split(':'); const it = kind === 'folder' ? F[id] : G[id];
+    const r = await api(`/api/trash/${kind}/${id}/restore`, { method: 'POST' });
+    render(); if (r.movedToRoot) setTimeout(() => notify(`"${it.name}" was restored to the top level because its folder is still in Trash.`));
+  });
   // Right-click a row for the same actions
   $$('tr[data-row]').forEach((tr) => tr.oncontextmenu = (e) => {
     e.preventDefault(); e.stopPropagation();
@@ -527,10 +542,19 @@ function bindTable(folders, files, { trash = false } = {}) {
     if (!bar) return;
     bar.hidden = !sel.length;
     if (!sel.length) return;
-    bar.innerHTML = `<b>${sel.length} selected</b><button id="bMove">Move…</button><button id="bDel" class="d">Delete</button><button id="bClear">Clear selection</button>`;
+    bar.innerHTML = trash
+      ? `<b>${sel.length} selected</b><button id="bRestore">Restore</button>${me.is_admin ? '<button id="bPurge" class="d">Delete forever</button>' : ''}<button id="bClear">Clear selection</button>`
+      : `<b>${sel.length} selected</b><button id="bMove">Move…</button><button id="bDel" class="d">Delete</button><button id="bClear">Clear selection</button>`;
     $('#bClear').onclick = () => { picks.forEach((c) => (c.checked = false)); sync(); };
-    $('#bMove').onclick = () => bulkMove(chosen());
-    $('#bDel').onclick = () => bulkDelete(chosen());
+    if (trash) {
+      $('#bRestore').onclick = () => bulkRun(chosen(), (x) => api(`/api/trash/${x.kind}/${x.id}/restore`, { method: 'POST' }), 'restored');
+      if ($('#bPurge')) $('#bPurge').onclick = () => { const sel2 = chosen(); modal({ title: `Delete ${sel2.length} item${sel2.length === 1 ? '' : 's'} forever?`, submit: 'Delete forever',
+        body: '<span class="m">They disappear from TeamDrive now. The stored copies are kept 30 days, then erased.</span>',
+        onOk: async () => { await bulkRun(sel2, (x) => api(`/api/trash/${x.kind}/${x.id}`, { method: 'DELETE' }), 'deleted'); } }); };
+    } else {
+      $('#bMove').onclick = () => bulkMove(chosen());
+      $('#bDel').onclick = () => bulkDelete(chosen());
+    }
   };
   picks.forEach((c) => c.onchange = sync);
   if ($('#pickAll')) $('#pickAll').onchange = (e) => { picks.forEach((c) => (c.checked = e.target.checked)); sync(); };
@@ -665,6 +689,18 @@ function changePassword() {
       setTimeout(() => notify('Password changed.'));
     } });
 }
+function addMemberDialog() {
+  const temp = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => 'abcdefghjkmnpqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 54]).join('');
+  modal({ title: 'Add a team member', submit: 'Add member',
+    body: field('name', 'Name', 'text', 'required autocomplete="off"') + field('email', 'Email', 'email', 'required autocomplete="off"') +
+      field('password', 'Temporary password (8+ characters)', 'text', `required minlength="8" autocomplete="off" value="${temp}"`) +
+      '<label class="check"><input type="checkbox" name="is_admin"> Make them an admin</label>' +
+      '<span class="m">Send them the sign-in address and this password separately (for example, the password by text message). They can change it from their account menu after signing in.</span>',
+    onOk: async (v) => {
+      await api('/api/users', { method: 'POST', body: { name: v.name, email: v.email, password: v.password, is_admin: !!v.is_admin } });
+      render(); setTimeout(() => notify(`${v.name} was added. Their temporary password is ${v.password}`));
+    } });
+}
 function resetPassword(u) {
   modal({ title: `Reset password for ${u.name}`, submit: 'Reset',
     body: field('password', 'New password (8+ characters)', 'password', 'required minlength="8" autocomplete="new-password"'),
@@ -672,16 +708,24 @@ function resetPassword(u) {
 }
 
 // ---------- Views ----------
+// Each page load gets a number. If you switch pages before it finishes, its late
+// result is thrown away (STALE) instead of being drawn over the page you're on now.
+let renderSeq = 0;
+const STALE = Symbol('stale');
+const pageHead = (title, desc = '', actions = '') => `<div class="pagehead"><div class="path"><h1>${title}</h1>${desc ? `<p class="desc">${desc}</p>` : ''}</div>${actions}</div>`;
 async function render() {
+  const my = ++renderSeq;
+  const get = async (url) => { const r = await api(url); if (my !== renderSeq) throw STALE; return r; };
   closeMenu();
   $$('[data-v]').forEach((b) => { if (b.dataset.v === view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
   if ($('#adminBtn')) $('#adminBtn').classList.toggle('on', ['users', 'activity', 'teams'].includes(view));
   usage();
   const m = $('#main');
   m.ondragenter = m.ondragover = m.ondragleave = m.ondrop = null; m.classList.remove('dragging');
+  const slow = setTimeout(() => { if (my === renderSeq) { m.setAttribute('aria-busy', 'true'); m.innerHTML = '<p class="loading" role="status">Loading…</p>'; } }, 200);
   try {
     if (view === 'files') {
-      const d = await api(`/api/folders/${folder}`);
+      const d = await get(`/api/folders/${folder}`);
       const here = d.crumbs[d.crumbs.length - 1];
       const trail = [{ id: 'root', name: 'Files' }, ...d.crumbs.slice(0, -1)];
       const empty = !d.folders.length && !d.files.length;
@@ -706,39 +750,55 @@ async function render() {
       m.ondragleave = () => { if (--depth <= 0) { depth = 0; m.classList.remove('dragging'); } };
       m.ondrop = async (e) => { e.preventDefault(); depth = 0; m.classList.remove('dragging'); upload(await droppedFiles(e.dataTransfer)); };
     } else if (view === 'search') {
-      const d = await api(`/api/search?q=${encodeURIComponent($('#search').value)}`);
+      const d = await get(`/api/search?q=${encodeURIComponent($('#search').value)}`);
       m.innerHTML = `<div class="pagehead"><div class="path"><h1>Search results</h1></div></div><div class="bulk" id="bulk" hidden role="region" aria-label="Selected items"></div>${table(d.folders, d.files, { select: true })}`;
       bindTable(d.folders, d.files);
     } else if (view === 'trash') {
-      const d = await api('/api/trash');
-      m.innerHTML = `<div class="bar"><b>Trash</b><span class="m">Restore anything deleted by mistake.${me.is_admin ? ' "Delete forever" keeps the stored copy 30 more days, then erases it.' : ''}</span></div>${table(d.folders, d.files, { trash: true })}`;
+      const d = await get('/api/trash');
+      const n = d.folders.length + d.files.length;
+      m.innerHTML = pageHead('Trash', `Deleted items stay here until ${me.is_admin ? 'you or another admin' : 'an admin'} deletes them forever. After that, the stored copy is kept 30 more days and then erased.`,
+          me.is_admin && n ? '<button class="d" id="emptyTrash">Empty trash</button>' : '')
+        + `<div class="bulk" id="bulk" hidden role="region" aria-label="Selected items"></div>`
+        + (n ? table(d.folders, d.files, { trash: true, select: true, owner: false })
+             : '<div class="empty"><b>Trash is empty</b><span>Anything you delete appears here, so you can restore it.</span></div>');
       bindTable(d.folders, d.files, { trash: true });
+      if ($('#emptyTrash')) $('#emptyTrash').onclick = () => modal({ title: `Delete all ${n} item${n === 1 ? '' : 's'} in Trash forever?`, submit: 'Delete forever',
+        body: '<span class="m">They disappear from TeamDrive now. The stored copies are kept 30 days, then erased.</span>',
+        onOk: async () => { await bulkRun([...d.folders.map((f) => ({ kind: 'folder', id: f.id, item: f })), ...d.files.map((f) => ({ kind: 'file', id: f.id, item: f }))],
+          (x) => api(`/api/trash/${x.kind}/${x.id}`, { method: 'DELETE' }), 'deleted'); } });
     } else if (view === 'shares') {
-      const links = await api('/api/shares');
-      m.innerHTML = `<div class="bar"><b>Shared links</b><span class="m">${me.is_admin ? 'All links on the team.' : 'Links you created.'}</span></div>
-        <table><tr><th>File</th><th class="hide-s">Created by</th><th class="hide-s">Expires</th><th class="hide-s">Downloads</th><th>Status</th><th></th></tr>
-        ${links.map((l) => `<tr><td>${esc(l.file_name)}${l.has_password ? '<span class="tag">🔑 password</span>' : ''}</td><td class="m hide-s">${esc(l.creator)}</td>
-          <td class="m hide-s">${l.expires_at ? when(l.expires_at) : 'Never'}</td><td class="m hide-s">${l.downloads}</td><td class="m">${esc(l.status)}</td>
-          <td class="acts">${l.status === 'active' ? `<button data-cpl="${esc(l.url)}">Copy</button> ` : ''}<button class="d" data-rv="${l.id}">${l.status === 'active' ? 'Revoke' : 'Remove'}</button></td></tr>`).join('')
-          || '<tr><td colspan="6" class="m">No links yet. Use ⋯ → Share link on any file.</td></tr>'}</table>`;
+      const links = await get('/api/shares');
+      const showing = store.get('td-links', 'all');
+      const list = links.filter((l) => showing === 'all' || (showing === 'active' ? l.status === 'active' : l.status !== 'active'));
+      m.innerHTML = pageHead('Shared links', me.is_admin ? 'Every link anyone on your team has created.' : 'Links you have created.',
+          links.length ? `<label class="m">Show <select id="lf2" style="width:auto"><option value="all">All links</option><option value="active">Active</option><option value="ended">Expired or removed</option></select></label>` : '')
+        + (links.length ? `<table><thead><tr><th>File</th><th class="hide-s">Created by</th><th class="hide-s">Expires</th><th class="hide-s">Downloads</th><th>Status</th><th><span class="sr">Actions</span></th></tr></thead><tbody>
+        ${list.map((l) => `<tr><td><span class="nm">${iconFor({ name: l.file_name })}<span>${esc(l.file_name)}</span>${l.has_password ? '<span class="tag">password</span>' : ''}</span></td><td class="m hide-s">${esc(l.creator)}</td>
+          <td class="m hide-s">${l.expires_at ? esc(when(l.expires_at)) : 'Never'}</td><td class="m hide-s">${l.downloads}</td>
+          <td><span class="tag ${l.status === 'active' ? 'ok' : ''}">${esc(l.status === 'active' ? 'Active' : l.status === 'expired' ? 'Expired' : 'File in Trash')}</span></td>
+          <td class="acts">${l.status === 'active' ? `<button data-cpl="${esc(l.url)}">Copy link</button> ` : ''}<button class="d" data-rv="${l.id}">${l.status === 'active' ? 'Revoke' : 'Remove'}</button></td></tr>`).join('')
+          || '<tr><td colspan="6" class="m">No links match this filter.</td></tr>'}</tbody></table>`
+          : `<div class="empty"><b>No shared links yet</b><span>To share a file with someone outside your team, open the file's ⋯ menu in Files and choose "Share link".</span><button class="p" id="toFiles">Go to Files</button></div>`);
+      if ($('#lf2')) { $('#lf2').value = showing; $('#lf2').onchange = (e) => { store.set('td-links', e.target.value); render(); }; }
+      if ($('#toFiles')) $('#toFiles').onclick = () => { view = 'files'; folder = 'root'; render(); };
       $$('[data-cpl]').forEach((b) => b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.cpl); b.textContent = 'Copied'; } catch { showLink(b.dataset.cpl); } });
       $$('[data-rv]').forEach((b) => b.onclick = () => modal({ title: 'Revoke this link?', body: '<span class="m">It stops working immediately.</span>', submit: 'Revoke',
         onOk: async () => { await api(`/api/shares/${b.dataset.rv}`, { method: 'DELETE' }); render(); } }));
     } else if (view === 'activity') {
-      await activityView(m);
+      await activityView(m, get, my);
     } else if (view === 'teams') {
-      await teamsView(m);
+      await teamsView(m, get);
     } else if (view === 'users') {
-      const us = await api('/api/users');
-      m.innerHTML = `<div class="bar"><b>Team members</b>${me.is_demo ? '<span class="m">Adding and changing members is turned off in the demo.</span>' : ''}</div>
-        <form id="uf" class="bar" ${me.is_demo ? 'hidden' : ''}><input name="name" placeholder="Name" required style="max-width:180px"><input name="email" type="email" placeholder="Email" required style="max-width:220px">
-        <input name="password" type="password" placeholder="Temp password (8+)" required minlength="8" style="max-width:200px" autocomplete="new-password">
-        <label class="m"><input type="checkbox" name="is_admin"> Admin</label><button class="p">Add</button></form>
-        <table><tr><th>Name</th><th class="hide-s">Email</th><th>Role</th><th class="hide-s">Two-step</th><th></th></tr>${us.map((u) => `<tr><td>${esc(u.name)}</td><td class="m hide-s">${esc(u.email)}</td>
-        <td class="m">${u.is_admin ? 'Admin' : 'Member'}</td><td class="m hide-s">${u.totp_enabled ? 'On' : u.totp_required ? '⚠️ Not set up' : 'Off'}</td><td class="acts">${u.id === me.id || me.is_demo ? '' : `<button data-um="${u.id}">⋯</button>`}</td></tr>`).join('')}</table>`;
-      $('#uf').onsubmit = async (e) => { e.preventDefault(); const f = new FormData(e.target);
-        try { await api('/api/users', { method: 'POST', body: { name: f.get('name'), email: f.get('email'), password: f.get('password'), is_admin: !!f.get('is_admin') } }); render(); }
-        catch (err) { notify(err.message); } };
+      const us = await get('/api/users');
+      m.innerHTML = pageHead('Team members', me.is_demo ? 'Adding and changing members is turned off in the demo.' : 'People who can sign in to your team’s TeamDrive.',
+          me.is_demo ? '' : '<button class="p" id="addUser">Add member</button>')
+        + `<table><thead><tr><th>Name</th><th class="hide-s">Email</th><th>Role</th><th class="hide-s">Two-step login</th><th class="hide-s">Last signed in</th><th class="hide-s">Storage</th><th><span class="sr">Actions</span></th></tr></thead><tbody>
+        ${us.map((u) => `<tr><td>${esc(u.name)}${u.id === me.id ? ' <span class="m">(you)</span>' : ''}</td><td class="m hide-s">${esc(u.email)}</td>
+        <td class="m">${u.is_admin ? 'Admin' : 'Member'}</td>
+        <td class="m hide-s">${u.totp_enabled ? 'On' : u.totp_required ? '<span class="tag warn" title="Required for admins. They will be asked to set it up the next time they sign in.">Not set up yet</span>' : 'Off'}</td>
+        <td class="m hide-s">${u.last_active ? dateCell(u.last_active) : 'Never'}</td><td class="m hide-s">${fmt(u.storage)}</td>
+        <td class="acts">${u.id === me.id || me.is_demo ? '' : `<button data-um="${u.id}" aria-label="Actions for ${esc(u.name)}">⋯</button>`}</td></tr>`).join('')}</tbody></table>`;
+      if ($('#addUser')) $('#addUser').onclick = addMemberDialog;
       const U = Object.fromEntries(us.map((u) => [u.id, u]));
       $$('[data-um]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); const u = U[b.dataset.um]; menu(b, [
         { label: 'Reset password…', run: () => resetPassword(u) },
@@ -749,10 +809,18 @@ async function render() {
             onOk: async () => { await api(`/api/users/${u.id}`, { method: 'DELETE' }); render(); }, body: '' }) }]); });
     }
   } catch (err) {
+    if (err === STALE || my !== renderSeq) return;
     if (err.message === 'Not signed in') return loginView();
     if (err.data?.setup2fa) { me.must_setup_2fa = true; return setupGate(); }
     if (err.message === 'Folder not found' && folder !== 'root') { folder = 'root'; return render(); }
-    m.innerHTML = `<div class="err">${esc(err.message)}</div>`;
+    console.error(err);
+    // Server messages are written for people; anything else (a bug, a network drop) gets a plain explanation.
+    const msg = err.status && err.status < 500 ? err.message : !navigator.onLine ? 'You seem to be offline. Check your connection.' : 'Please try again in a moment. If it keeps happening, contact your TeamDrive admin.';
+    m.innerHTML = `${pageHead('This page didn\u2019t load')}<div class="empty"><b>Something went wrong</b><span>${esc(msg)}</span><button class="p" id="retry">Try again</button></div>`;
+    $('#retry').onclick = render;
+  } finally {
+    clearTimeout(slow);
+    if (my === renderSeq) m.removeAttribute('aria-busy');
   }
 }
 
@@ -770,24 +838,33 @@ const ACT_GROUPS = {
   'Members': 'user_add,user_remove', 'Deletions only': 'delete,purge', 'Failed sign-ins only': 'login_failed' };
 const ICON = { file: '<svg class="fi sm" aria-hidden="true"><use href="#i-file"/></svg>', folder: '<svg class="fi sm" aria-hidden="true"><use href="#i-folder"/></svg>', user: '', team: '' };
 let actFilter = {};
-async function activityView(m) {
-  const members = await api('/api/users');
-  m.innerHTML = `<div class="bar"><b>Activity</b><span class="m">Everything your team did in the last year.</span><div style="flex:1"></div><button id="csv">Export CSV</button></div>
-    <div class="filters"><select id="fUser"><option value="">Everyone</option>${members.map((u) => `<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select>
-    <select id="fAct"><option value="">All actions</option>${Object.entries(ACT_GROUPS).map(([k, v]) => `<option value="${v}">${esc(k)}</option>`).join('')}</select>
-    <input type="search" id="fQ" placeholder="File or folder name…"><input type="date" id="fFrom" title="From"><input type="date" id="fTo" title="To"></div>
+async function activityView(m, get, my) {
+  const [members, fails] = await Promise.all([get('/api/users'), get('/api/activity?action=login_failed&limit=50')]);
+  const recent = fails.items.filter((a) => Date.now() - new Date(a.created_at) < 7 * 864e5).length;
+  m.innerHTML = pageHead('Activity', 'Everything your team did in the last year.', '<button id="csv">Export CSV</button>')
+    + (recent ? `<div class="notice warn" role="status"><b>${recent} failed sign-in${recent === 1 ? '' : 's'} in the last 7 days.</b> If these weren't you or your team, reset the affected passwords. <a href="#" id="showFails">Show them</a></div>` : '')
+    + `<div class="filters">
+    <label>Person<select id="fUser"><option value="">Everyone</option>${members.map((u) => `<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select></label>
+    <label>Action<select id="fAct"><option value="">All actions</option>${Object.entries(ACT_GROUPS).map(([k, v]) => `<option value="${v}">${esc(k)}</option>`).join('')}</select></label>
+    <label>Name<input type="search" id="fQ" placeholder="File or folder name"></label>
+    <label>From<input type="date" id="fFrom"></label><label>To<input type="date" id="fTo"></label></div>
     <table><thead><tr><th>When</th><th>Who</th><th>What</th><th class="hide-s">Details</th></tr></thead><tbody id="actRows"></tbody></table>
     <div class="row" style="justify-content:center;margin-top:12px"><button id="more" hidden>Load more</button></div>`;
+  if ($('#showFails')) $('#showFails').onclick = (e) => { e.preventDefault(); $('#fAct').value = ACT_GROUPS['Failed sign-ins only']; $('#fAct').dispatchEvent(new Event('input')); };
   const ids = { fUser: 'user', fAct: 'action', fQ: 'q', fFrom: 'from', fTo: 'to' };
   for (const [id, k] of Object.entries(ids)) { if (actFilter[k]) $('#' + id).value = actFilter[k]; }
   const qs = (extra = {}) => new URLSearchParams(Object.fromEntries(Object.entries({ ...actFilter, ...extra }).filter(([, v]) => v))).toString();
   let last = 0;
+  // Long IPv6 addresses are shortened; the full address shows on hover.
+  const ipTag = (ip) => { const v = ip.replace(/^::ffff:/, ''); const short = v.length > 18 ? `${v.split(':').slice(0, 2).join(':')}…${v.split(':').pop()}` : v; return `<span class="tag" title="IP address ${esc(v)}">${esc(short)}</span>`; };
   const load = async (append) => {
-    const d = await api(`/api/activity?${qs(append ? { before: last } : {})}`);
-    const html = d.items.map((a) => `<tr class="${a.action === 'login_failed' ? 'bad' : ''}"><td class="m when" title="${esc(new Date(a.created_at).toLocaleString())}">${when(a.created_at)}</td>
+    let d;
+    try { d = await api(`/api/activity?${qs(append ? { before: last } : {})}`); } catch (err) { if (my === renderSeq) notify(err.message); return; }
+    if (my !== renderSeq || !$('#actRows')) return; // you've moved to another page
+    const html = d.items.map((a) => `<tr><td class="m when">${dateCell(a.created_at)}</td>
       <td>${esc(a.user_name || (a.user_id ? 'Removed member' : a.action === 'share_open' ? 'Someone with a link' : 'TeamDrive owner'))}</td>
-      <td>${esc(ACT[a.action] || a.action)}${a.target_name ? ` ${ICON[a.target_type] || ''} <b>${esc(a.target_name)}</b>` : ''}<div class="m mob">${esc(a.detail || '')}</div></td>
-      <td class="m hide-s">${esc(a.detail || '')}${a.ip && /login/.test(a.action) ? ` <span class="tag">${esc(a.ip)}</span>` : ''}</td></tr>`).join('');
+      <td>${a.action === 'login_failed' ? '<span class="tag bad">Failed sign-in</span>' : esc(ACT[a.action] || a.action)}${a.target_name ? ` ${ICON[a.target_type] || ''} <b>${esc(a.target_name)}</b>` : ''}<div class="m mob">${esc(a.detail || '')}</div></td>
+      <td class="m hide-s">${esc(a.detail || '')}${a.ip && /login/.test(a.action) ? ` ${ipTag(a.ip)}` : ''}</td></tr>`).join('');
     if (append) $('#actRows').insertAdjacentHTML('beforeend', html);
     else $('#actRows').innerHTML = html || '<tr><td colspan="4" class="m">No activity matches these filters.</td></tr>';
     if (d.items.length) last = d.items[d.items.length - 1].id;
@@ -802,16 +879,16 @@ async function activityView(m) {
 }
 
 // ---------- Teams (owner) ----------
-async function teamsView(m) {
-  const [teams, reqs] = await Promise.all([api('/api/owner/teams'), api('/api/owner/requests')]);
+async function teamsView(m, get) {
+  const [teams, reqs] = await Promise.all([get('/api/owner/teams'), get('/api/owner/requests')]);
   const open = reqs.filter((r) => !r.handled_at);
   const reqHtml = reqs.length ? `<div class="bar" style="margin-top:4px"><b>Requests</b><span class="m">${open.length ? `${open.length} waiting` : 'All handled'}, from the "Get your own copy" form on your home page</span></div>
-    <table style="margin-bottom:28px"><tr><th>From</th><th class="hide-s">Size &amp; hosting</th><th class="hide-s">Message</th><th class="hide-s">Received</th><th></th></tr>
+    <table style="margin-bottom:28px"><tr><th>From</th><th class="hide-s">Size &amp; hosting</th><th class="hide-s">Message</th><th class="hide-s">Received</th><th><span class="sr">Actions</span></th></tr>
     ${reqs.map((r) => `<tr style="${r.handled_at ? 'opacity:.55' : ''}"><td><b>${esc(r.company)}</b><div class="m">${esc(r.name)} · <a href="mailto:${esc(r.email)}">${esc(r.email)}</a></div></td>
       <td class="m hide-s">${esc(r.team_size)}${r.hosting ? `<div>${esc(r.hosting)}</div>` : ''}</td><td class="m hide-s" style="max-width:320px">${esc(r.message || '—')}</td><td class="m hide-s">${day(r.created_at)}</td>
       <td class="acts">${r.handled_at ? `<button data-rq-undo="${r.id}">Reopen</button>` : `<button class="p" data-rq-create="${r.id}">Create team</button> <button data-rq-done="${r.id}">Mark handled</button>`}</td></tr>`).join('')}</table>` : '';
-  m.innerHTML = `${reqHtml}<div class="bar"><b>Teams</b><span class="m">Only you (the TeamDrive owner) see this page. You can't open other teams' files.</span><div style="flex:1"></div><button class="p" id="nt">New team</button></div>
-    <table><tr><th>Team</th><th class="hide-s">Admins</th><th class="hide-s">Members</th><th>Storage</th><th class="hide-s">Created</th><th></th></tr>
+  m.innerHTML = `${pageHead('Teams', 'Only you, the TeamDrive owner, see this page. You can\u2019t open other teams\u2019 files.', '<button class="p" id="nt">New team</button>')}${reqHtml}<h2 class="sub">All teams</h2>
+    <table><tr><th>Team</th><th class="hide-s">Admins</th><th class="hide-s">Members</th><th>Storage</th><th class="hide-s">Created</th><th><span class="sr">Actions</span></th></tr>
     ${teams.map((t) => { const pct = t.quota_bytes ? Math.min(100, (t.used / t.quota_bytes) * 100) : 0;
       const tl = trialLeft(t.trial_ends_at);
       const trialTag = tl === null ? '' : `<span class="tag${tl <= 3 ? ' warn' : ''}" title="${tl < 0 ? 'Ended' : 'Ends'} ${day(t.trial_ends_at)}">${trialText(tl)}</span>`;
