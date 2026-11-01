@@ -8,6 +8,7 @@
 <style>
 :root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--mute:#586070;--line:#e5e7eb;--acc:#2563eb;--danger:#d93838;--hover:#f1f3f7}
 @media (prefers-color-scheme:dark){:root{--bg:#111318;--card:#1a1d24;--ink:#e8eaf0;--mute:#b4bac6;--line:#2a2e38;--acc:#5b8cff;--hover:#22262f;--danger:#ff7b7b}.notice.warn a{color:#a9c1ff}:root button.p{color:#0f1626}:root button.p:hover{background:#82a6ff}:root .autherr{color:#ffb4b4}.spin{border-color:rgba(15,22,38,.35);border-top-color:#0f1626}}
+html{scrollbar-gutter:stable}
 *{box-sizing:border-box}body{margin:0;font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
 button,input,select{font:inherit}button{cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 12px;border-radius:8px}
 button:hover{background:var(--hover)}button:disabled{opacity:.45;cursor:not-allowed}button.p{background:var(--acc);border-color:var(--acc);color:#fff}button.p:hover{background:#1d4ed8}button.d{color:var(--danger)}
@@ -339,9 +340,36 @@ function codeView(msg = '') {
   };
   code.focus();
 }
+// Someone signing in with a temporary password (from "Add member" or "Reset password")
+// must choose their own before using TeamDrive.
+function passwordGate() {
+  authShell('', `<form id="pg" novalidate>
+    <h1>Choose your password</h1>
+    <p class="m lead">You signed in with a temporary password. Choose your own to continue. Nobody else will know it.</p>
+    <div class="autherr" role="alert" id="pgErr" hidden></div>
+    <div class="fld"><label for="pgCur">Temporary password</label><input id="pgCur" type="password" autocomplete="current-password" required></div>
+    <div class="fld"><label for="pgNew">New password</label><input id="pgNew" type="password" autocomplete="new-password" minlength="8" required aria-describedby="pgHint">
+      <p class="hint" id="pgHint">At least 8 characters. A short sentence is easy to remember and hard to guess.</p></div>
+    <div class="fld"><label for="pgRep">Repeat new password</label><input id="pgRep" type="password" autocomplete="new-password" required></div>
+    <button class="p big" id="go" data-label="Save and continue">Save and continue</button>
+    <p class="m"><a href="#" id="pgOut">Sign out</a></p></form>`);
+  const form = $('#pg'), go = $('#go');
+  $('#pgOut').onclick = (e) => { e.preventDefault(); logout(); };
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const cur = $('#pgCur'), nw = $('#pgNew'), rp = $('#pgRep');
+    if (!cur.value) return showAuthError(form, 'Enter the temporary password you signed in with.', cur);
+    if (nw.value.length < 8) return showAuthError(form, 'Your new password needs at least 8 characters.', nw);
+    if (nw.value !== rp.value) return showAuthError(form, 'The two new passwords don’t match.', rp);
+    showAuthError(form, ''); busy(go, true, 'Saving…');
+    try { await api('/api/me/password', { method: 'POST', body: { current: cur.value, password: nw.value } }); afterLogin(); }
+    catch (err) { busy(go, false); showAuthError(form, err.message, /current/i.test(err.message) ? cur : nw); }
+  };
+  $('#pgCur').focus();
+}
 async function afterLogin() {
   me = await api('/api/me');
-  me.must_setup_2fa ? setupGate() : shell();
+  me.must_change_password ? passwordGate() : me.must_setup_2fa ? setupGate() : shell();
 }
 async function logout() { await api('/api/logout', { method: 'POST' }).catch(() => {}); me = null; location.href = '/login'; }
 
@@ -492,7 +520,8 @@ function table(folders, files, { trash = false, select = false, owner = true } =
     <td class="m hide-s">${dateCell(f.updated_at || f.deleted_at)}</td>
     <td class="acts">${trash ? `<button data-restore="file:${f.id}">Restore</button> ` : ''}<button data-menu="${f.id}" aria-label="Actions for ${esc(f.name)}">⋯</button></td></tr>`).join('');
   const cols = 4 + (select ? 1 : 0) + (owner ? 1 : 0);
-  return `<table><thead><tr>${select ? '<th class="ck"><input type="checkbox" id="pickAll" aria-label="Select all"></th>' : ''}${th('name', 'Name')}${owner ? '<th class="hide-s">Owner</th>' : ''}${th('size', 'Size', 'hide-s')}${th('date', trash ? 'Deleted' : 'Modified', 'hide-s')}<th><span class="sr">Actions</span></th></tr></thead>
+  const who = trash ? 'Deleted by' : 'Owner';
+  return `<table><thead><tr>${select ? '<th class="ck"><input type="checkbox" id="pickAll" aria-label="Select all"></th>' : ''}${th('name', 'Name')}${owner ? `<th class="hide-s">${who}</th>` : ''}${th('size', 'Size', 'hide-s')}${th('date', trash ? 'Deleted' : 'Modified', 'hide-s')}<th><span class="sr">Actions</span></th></tr></thead>
     <tbody>${fr + fl || `<tr><td colspan="${cols}" class="m">${trash ? 'Trash is empty.' : 'Nothing here yet.'}</td></tr>`}</tbody></table>`;
 }
 
@@ -710,6 +739,7 @@ async function accountSettings() {
   const a = await api('/api/me');
   modal({ title: 'Account settings', cancel: 'Close', body: `<div class="acct">
     <div class="who"><b>${esc(a.name)}</b><span class="m">${esc(a.email)} · ${a.is_admin ? 'Admin' : 'Member'} of ${esc(a.team_name)}</span></div>
+    <div class="row2"><div><b>Your storage</b><div class="m">Files you uploaded use ${fmt(a.my_storage || 0)}.</div></div></div>
     ${a.is_demo ? '<span class="m">Password and two-step login can’t be changed in the public demo.</span>' : `
     <div class="row2"><div><b>Password</b><div class="m">Change the password you sign in with.</div></div><button type="button" id="asPw">Change password</button></div>
     <div class="row2"><div><b>Two-step login</b><div class="m">${a.totp_enabled ? `On${a.totp_required ? ', required for your account' : ''}. ${a.backup_codes_left} backup code${a.backup_codes_left === 1 ? '' : 's'} left.` : 'Off. Adds a code from your phone at sign-in.'}</div></div><button type="button" id="as2fa">${a.totp_enabled ? 'Manage' : 'Turn on'}</button></div>`}
@@ -751,7 +781,7 @@ async function render() {
         ${here ? '<button id="zip" class="hide-s">Download zip</button>' : ''}<button id="nf">New folder</button><button id="upd" class="hide-s">Upload folder</button><button class="p" id="up">Upload files</button></div>
         <div class="bulk" id="bulk" hidden role="region" aria-label="Selected items"></div><div id="prog" class="prog" role="status"></div>
         ${empty ? `<div class="empty"><svg aria-hidden="true"><use href="#i-upload"/></svg><b>This folder is empty</b><span>Drag files or folders here, or</span><button class="p" id="up2">Upload files</button></div>`
-          : `<p class="dropnote">Drag files or folders anywhere on this page to upload them here.</p>${table(d.folders, d.files, { select: true, owner: d.member_count > 1 })}<p class="sorthint">Click a column name to sort.<span class="rc"> Right-click a row for more actions.</span></p>`}`;
+          : `<p class="dropnote">Drag files or folders anywhere on this page to upload them here.</p>${table(d.folders, d.files, { select: true, owner: d.member_count > 1 })}`}`;
       bindTable(d.folders, d.files);
       $('#zip') && ($('#zip').onclick = () => { location.href = `/api/folders/${folder}/zip`; });
       $('#nf').onclick = () => modal({ title: 'New folder', submit: 'Create', body: field('name', 'Folder name', 'text', 'required'),
@@ -775,12 +805,12 @@ async function render() {
       m.innerHTML = pageHead('Trash', `Deleted items stay here until ${me.is_admin ? 'you or another admin' : 'an admin'} deletes them forever. After that, the stored copy is kept 30 more days and then erased.`,
           me.is_admin && n ? '<button class="d" id="emptyTrash">Empty trash</button>' : '')
         + `<div class="bulk" id="bulk" hidden role="region" aria-label="Selected items"></div>`
-        + (n ? table(d.folders, d.files, { trash: true, select: true, owner: false })
+        + (n ? table(d.folders, d.files, { trash: true, select: true, owner: true })
              : '<div class="empty"><b>Trash is empty</b><span>Anything you delete appears here, so you can restore it.</span></div>');
       bindTable(d.folders, d.files, { trash: true });
       if ($('#emptyTrash')) $('#emptyTrash').onclick = () => modal({ title: `Delete all ${n} item${n === 1 ? '' : 's'} in Trash forever?`, submit: 'Delete forever',
-        body: '<span class="m">They disappear from TeamDrive now. The stored copies are kept 30 days, then erased.</span>',
-        onOk: async () => { await bulkRun([...d.folders.map((f) => ({ kind: 'folder', id: f.id, item: f })), ...d.files.map((f) => ({ kind: 'file', id: f.id, item: f }))],
+        body: '<span class="m">They disappear from TeamDrive now. The stored copies are kept 30 days, then erased.</span>' + field('confirm', 'Type EMPTY to confirm', 'text', 'required autocomplete="off" autocapitalize="characters"'),
+        onOk: async (v) => { if (String(v.confirm || '').trim().toUpperCase() !== 'EMPTY') throw new Error('Type EMPTY to confirm.'); await bulkRun([...d.folders.map((f) => ({ kind: 'folder', id: f.id, item: f })), ...d.files.map((f) => ({ kind: 'file', id: f.id, item: f }))],
           (x) => api(`/api/trash/${x.kind}/${x.id}`, { method: 'DELETE' }), 'deleted'); } });
     } else if (view === 'shares') {
       const links = await get('/api/shares');
@@ -811,7 +841,7 @@ async function render() {
         + `<table><thead><tr><th>Name</th><th class="hide-s">Email</th><th>Role</th><th class="hide-s">Two-step login</th><th class="hide-s">Last signed in</th><th class="hide-s">Storage</th><th><span class="sr">Actions</span></th></tr></thead><tbody>
         ${us.map((u) => `<tr><td>${esc(u.name)}${u.id === me.id ? ' <span class="m">(you)</span>' : ''}</td><td class="m hide-s">${esc(u.email)}</td>
         <td class="m">${u.is_admin ? 'Admin' : 'Member'}</td>
-        <td class="m hide-s">${u.totp_enabled ? 'On' : u.totp_required ? '<span class="tag warn" title="Required for admins. They will be asked to set it up the next time they sign in.">Not set up yet</span>' : 'Off'}</td>
+        <td class="m hide-s">${u.totp_enabled ? '<span class="tag ok">On</span>' : !u.totp_required ? '<span class="tag">Off</span>' : '<span class="tag warn" title="Required for admins. They will be asked to set it up the next time they sign in.">Not set up yet</span>'}</td>
         <td class="m hide-s">${u.last_active ? dateCell(u.last_active) : 'Never'}</td><td class="m hide-s">${fmt(u.storage)}</td>
         <td class="acts">${u.id === me.id || me.is_demo ? '' : `<button data-um="${u.id}" aria-label="Actions for ${esc(u.name)}">⋯</button>`}</td></tr>`).join('')}</tbody></table>`;
       if ($('#addUser')) $('#addUser').onclick = addMemberDialog;
@@ -827,6 +857,7 @@ async function render() {
   } catch (err) {
     if (err === STALE || my !== renderSeq) return;
     if (err.message === 'Not signed in') return loginView();
+    if (err.data?.change_password) { me.must_change_password = true; return passwordGate(); }
     if (err.data?.setup2fa) { me.must_setup_2fa = true; return setupGate(); }
     if (err.message === 'Folder not found' && folder !== 'root') { folder = 'root'; return render(); }
     console.error(err);
@@ -863,11 +894,23 @@ async function activityView(m, get, my) {
     <label>Person<select id="fUser"><option value="">Everyone</option>${members.map((u) => `<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select></label>
     <label>Action<select id="fAct"><option value="">All actions</option>${Object.entries(ACT_GROUPS).map(([k, v]) => `<option value="${v}">${esc(k)}</option>`).join('')}</select></label>
     <label>Name<input type="search" id="fQ" placeholder="File or folder name"></label>
-    <label>From<input type="date" id="fFrom"></label><label>To<input type="date" id="fTo"></label></div>
+    <label>When<select id="fWhen"><option value="">Any time</option><option value="1">Today</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="custom">Custom dates…</option></select></label>
+    <label class="cust" hidden>From<input type="date" id="fFrom"></label><label class="cust" hidden>To<input type="date" id="fTo"></label></div>
     <table><thead><tr><th>When</th><th>Who</th><th>What</th><th class="hide-s">Details</th></tr></thead><tbody id="actRows"></tbody></table>
     <div class="row" style="justify-content:center;margin-top:12px"><button id="more" hidden>Load more</button></div>`;
   if ($('#showFails')) $('#showFails').onclick = (e) => { e.preventDefault(); $('#fAct').value = ACT_GROUPS['Failed sign-ins only']; $('#fAct').dispatchEvent(new Event('input')); };
   const ids = { fUser: 'user', fAct: 'action', fQ: 'q', fFrom: 'from', fTo: 'to' };
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const whenSel = $('#fWhen');
+  whenSel.value = actFilter.when || '';
+  const showCustom = () => $$('.cust').forEach((l) => (l.hidden = whenSel.value !== 'custom'));
+  showCustom();
+  whenSel.onchange = () => {
+    actFilter.when = whenSel.value; showCustom();
+    if (whenSel.value && whenSel.value !== 'custom') { const d = new Date(); d.setDate(d.getDate() - Number(whenSel.value) + 1); $('#fFrom').value = iso(d); $('#fTo').value = ''; }
+    else if (!whenSel.value) { $('#fFrom').value = ''; $('#fTo').value = ''; }
+    $('#fFrom').dispatchEvent(new Event('input'));
+  };
   for (const [id, k] of Object.entries(ids)) { if (actFilter[k]) $('#' + id).value = actFilter[k]; }
   const qs = (extra = {}) => new URLSearchParams(Object.fromEntries(Object.entries({ ...actFilter, ...extra }).filter(([, v]) => v))).toString();
   let last = 0;
@@ -880,7 +923,7 @@ async function activityView(m, get, my) {
     const html = d.items.map((a) => `<tr><td class="m when">${dateCell(a.created_at)}</td>
       <td>${esc(a.user_name || (a.user_id ? 'Removed member' : a.action === 'share_open' ? 'Someone with a link' : 'TeamDrive owner'))}</td>
       <td>${a.action === 'login_failed' ? '<span class="tag bad">Failed sign-in</span>' : esc(ACT[a.action] || a.action)}${a.target_name ? ` ${ICON[a.target_type] || ''} <b>${esc(a.target_name)}</b>` : ''}<div class="m mob">${esc(a.detail || '')}</div></td>
-      <td class="m hide-s">${esc(a.detail || '')}${a.ip && /login/.test(a.action) ? ` ${ipTag(a.ip)}` : ''}</td></tr>`).join('');
+      <td class="m hide-s">${esc(a.detail || '')}${a.device && /login/.test(a.action) ? ` <span class="tag">${esc(a.device)}</span>` : ''}${a.ip && /login/.test(a.action) ? ` ${ipTag(a.ip)}` : ''}</td></tr>`).join('');
     if (append) $('#actRows').insertAdjacentHTML('beforeend', html);
     else $('#actRows').innerHTML = html || '<tr><td colspan="4" class="m">No activity matches these filters.</td></tr>';
     if (d.items.length) last = d.items[d.items.length - 1].id;
@@ -1014,7 +1057,7 @@ function mountPickers() {
 };
 }
 
-api('/api/me').then((u) => { me = u; me.must_setup_2fa ? setupGate() : shell(); }).catch(() => loginView());
+api('/api/me').then((u) => { me = u; me.must_change_password ? passwordGate() : me.must_setup_2fa ? setupGate() : shell(); }).catch(() => loginView());
 </script>
 </body>
 </html>

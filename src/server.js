@@ -55,6 +55,8 @@ const auth = wrap(async (req, res, next) => {
   const [t] = await q('SELECT disabled FROM teams WHERE id=?', [u.team_id]);
   if (!t || t.disabled) return req.session.destroy(() => res.status(401).json({ error: 'Not signed in' }));
   // Accounts that must use two-step login can only reach the setup screens until it's on.
+  if (u.must_change_password && !['/api/me', '/api/me/password'].includes(req.path))
+    return res.status(403).json({ error: 'Choose a new password first', change_password: true });
   if (u.must_setup_2fa && !req.path.startsWith('/api/2fa/') && req.path !== '/api/me')
     return res.status(403).json({ error: 'Set up two-step login first', setup2fa: true });
   next();
@@ -74,16 +76,23 @@ function addFail(key) {
 setInterval(() => { const now = Date.now(); for (const [k, r] of fails) if (r.reset < now) fails.delete(k); }, WINDOW).unref();
 
 // ---------- Activity log ----------
+// "Chrome on Mac", "Safari on iPhone"... worked out locally from the browser's user agent.
+function deviceOf(ua = '') {
+  const b = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : '';
+  const o = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Mac OS X/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : '';
+  return b && o ? `${b} on ${o}` : b || o || null;
+}
 // log(req, action, { type, id, name }, detail, { teamId, userId }) — never throws.
 async function log(req, action, target = {}, detail = '', who = {}) {
   try {
     const u = req.session?.user;
     const teamId = who.teamId ?? u?.team_id;
     if (!teamId) return;
-    await q('INSERT INTO activity_log (team_id, user_id, action, target_type, target_id, target_name, detail, ip) VALUES (?,?,?,?,?,?,?,?)',
+    await q('INSERT INTO activity_log (team_id, user_id, action, target_type, target_id, target_name, detail, ip, device) VALUES (?,?,?,?,?,?,?,?,?)',
       [teamId, who.userId !== undefined ? who.userId : u?.id ?? null, action, target.type || null, target.id || null,
         target.name ? String(target.name).slice(0, 255) : null, detail ? String(detail).slice(0, 500) : null,
-        u?.is_demo ? null : String(req.ip || '').slice(0, 64)]); // demo visitors can see the log, so never store their IPs
+        u?.is_demo ? null : String(req.ip || '').slice(0, 64), // demo visitors can see the log, so never store their IPs
+        u?.is_demo ? null : deviceOf(req.headers['user-agent'])]);
   } catch (e) { console.error('activity log failed:', e.message); }
 }
 
@@ -154,7 +163,8 @@ const cookieOf = (req, name) => {
 };
 const USER_SQL = 'SELECT u.*, t.name AS team_name, t.disabled AS team_disabled FROM users u JOIN teams t ON t.id=u.team_id';
 const sessionUser = (u) => ({ v: SESSION_V, id: u.id, name: u.name, email: u.email, is_admin: !!u.is_admin, is_owner: !!u.is_owner, is_demo: !!u.is_demo,
-  team_id: u.team_id, team_name: u.team_name, must_setup_2fa: requires2fa(u) && !u.totp_enabled && !u.is_demo });
+  team_id: u.team_id, team_name: u.team_name, must_change_password: !!u.must_change_password && !u.is_demo,
+  must_setup_2fa: requires2fa(u) && !u.totp_enabled && !u.is_demo });
 // remember=true keeps you signed in for 30 days; otherwise until the browser is closed.
 const REMEMBER_DAYS = 30;
 function startSession(req, res, u, remember) {
@@ -260,14 +270,18 @@ app.get('/api/me', auth, wrap(async (req, res) => {
   if (!u) return req.session.destroy(() => res.status(401).json({ error: 'Not signed in' }));
   const [c] = await q('SELECT COUNT(*) AS n FROM backup_codes WHERE user_id=? AND used_at IS NULL', [u.id]);
   const [tm] = await q('SELECT trial_ends_at FROM teams WHERE id=?', [u.team_id]);
-  res.json({ ...req.session.user, team_name: u.team_name, trial_ends_at: u.is_admin ? tm.trial_ends_at : null, totp_enabled: !!u.totp_enabled, totp_required: requires2fa(u), backup_codes_left: c.n });
+  const [st] = await q("SELECT COALESCE(SUM(size),0) AS b FROM files WHERE team_id=? AND uploaded_by=? AND status='ready'", [u.team_id, u.id]);
+  res.json({ ...req.session.user, my_storage: Number(st.b), team_name: u.team_name, trial_ends_at: u.is_admin ? tm.trial_ends_at : null, totp_enabled: !!u.totp_enabled, totp_required: requires2fa(u), backup_codes_left: c.n });
 }));
 
 app.post('/api/me/password', auth, wrap(async (req, res) => {
   const { current, password } = req.body;
   if (!password || password.length < 8) return res.status(400).json({ error: 'New password must be 8+ characters' });
   if (!(await checkPassword(req.session.user.id, current))) return res.status(400).json({ error: 'Current password is wrong' });
-  await q('UPDATE users SET password_hash=? WHERE id=?', [await bcrypt.hash(password, 12), req.session.user.id]);
+  if (await bcrypt.compare(password, (await q('SELECT password_hash FROM users WHERE id=?', [req.session.user.id]))[0].password_hash))
+    return res.status(400).json({ error: 'Choose a password that is different from your current one' });
+  await q('UPDATE users SET password_hash=?, must_change_password=0 WHERE id=?', [await bcrypt.hash(password, 12), req.session.user.id]);
+  req.session.user = { ...req.session.user, must_change_password: false };
   await q('DELETE FROM trusted_devices WHERE user_id=?', [req.session.user.id]);
   log(req, 'password_change');
   res.json({ ok: true });
@@ -329,7 +343,7 @@ app.post('/api/users', auth, admin, wrap(async (req, res) => {
   const { email, name, password, is_admin } = req.body;
   if (!email || !name || !password || password.length < 8)
     return res.status(400).json({ error: 'Email, name and a password of 8+ characters are required' });
-  const r = await q('INSERT INTO users (team_id, email, name, password_hash, is_admin) VALUES (?,?,?,?,?)',
+  const r = await q('INSERT INTO users (team_id, email, name, password_hash, is_admin, must_change_password) VALUES (?,?,?,?,?,1)',
     [T(req), String(email).toLowerCase(), cleanName(name), await bcrypt.hash(password, 12), is_admin ? 1 : 0])
     .catch((e) => { throw e.code === 'ER_DUP_ENTRY' ? httpErr(400, 'That email is already registered') : e; });
   log(req, 'user_add', { type: 'user', id: r.insertId, name: cleanName(name) }, is_admin ? 'Admin' : 'Member');
@@ -339,7 +353,7 @@ app.post('/api/users/:id/password', auth, admin, wrap(async (req, res) => {
   const u = await teamMember(req, req.params.id);
   const { password } = req.body;
   if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be 8+ characters' });
-  await q('UPDATE users SET password_hash=? WHERE id=?', [await bcrypt.hash(password, 12), u.id]);
+  await q('UPDATE users SET password_hash=?, must_change_password=1 WHERE id=?', [await bcrypt.hash(password, 12), u.id]);
   await q('DELETE FROM trusted_devices WHERE user_id=?', [u.id]);
   log(req, 'password_reset', { type: 'user', id: u.id, name: u.name });
   res.json({ ok: true });
@@ -469,7 +483,7 @@ app.patch('/api/folders/:id', auth, wrap(async (req, res) => {
 app.delete('/api/folders/:id', auth, wrap(async (req, res) => {
   const id = Number(req.params.id);
   const acl = await requireFolder(req, id);
-  await q('UPDATE folders SET deleted_at=NOW() WHERE id=?', [id]);
+  await q('UPDATE folders SET deleted_at=NOW(), deleted_by=? WHERE id=?', [req.session.user.id, id]);
   log(req, 'delete', { type: 'folder', id, name: acl.byId.get(id).name });
   res.json({ ok: true });
 }));
@@ -638,7 +652,7 @@ app.patch('/api/files/:id', auth, wrap(async (req, res) => {
 }));
 app.delete('/api/files/:id', auth, wrap(async (req, res) => {
   const f = await getFile(req, req.params.id);
-  await q('UPDATE files SET deleted_at=NOW() WHERE id=?', [f.id]);
+  await q('UPDATE files SET deleted_at=NOW(), deleted_by=? WHERE id=?', [req.session.user.id, f.id]);
   log(req, 'delete', { type: 'file', id: f.id, name: f.name });
   res.json({ ok: true });
 }));
@@ -682,8 +696,8 @@ app.post('/api/files/:id/versions/:vid/restore', auth, wrap(async (req, res) => 
 app.get('/api/trash', auth, wrap(async (req, res) => {
   const acl = await loadAcl(req.session.user);
   res.json({
-    folders: (await q('SELECT id, name, deleted_at FROM folders WHERE team_id=? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC', [T(req)])).filter((f) => acl.can(f.id)),
-    files: (await q('SELECT id, name, size, mime, folder_id, deleted_at FROM files WHERE team_id=? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC', [T(req)])).filter((f) => acl.can(f.folder_id)),
+    folders: (await q('SELECT f.id, f.name, f.deleted_at, u.name AS owner FROM folders f LEFT JOIN users u ON u.id=f.deleted_by WHERE f.team_id=? AND f.deleted_at IS NOT NULL ORDER BY f.deleted_at DESC', [T(req)])).filter((f) => acl.can(f.id)),
+    files: (await q('SELECT f.id, f.name, f.size, f.mime, f.folder_id, f.deleted_at, u.name AS owner FROM files f LEFT JOIN users u ON u.id=f.deleted_by WHERE f.team_id=? AND f.deleted_at IS NOT NULL ORDER BY f.deleted_at DESC', [T(req)])).filter((f) => acl.can(f.folder_id)),
   });
 }));
 // If the item's parent folder is still in Trash, restore it to the top level so it doesn't vanish.
@@ -836,7 +850,7 @@ function activityQuery(req) {
   if (req.query.q) { where.push('(a.target_name LIKE ? OR a.detail LIKE ?)'); const t = `%${String(req.query.q).replace(/[%_\\]/g, '\\$&')}%`; p.push(t, t); }
   if (req.query.from) { where.push('a.created_at >= ?'); p.push(new Date(req.query.from)); }
   if (req.query.to) { where.push('a.created_at < ?'); p.push(new Date(new Date(req.query.to).getTime() + 864e5)); }
-  return { sql: `SELECT a.id, a.created_at, a.action, a.target_type, a.target_id, a.target_name, a.detail, a.ip, a.user_id, u.name AS user_name
+  return { sql: `SELECT a.id, a.created_at, a.action, a.target_type, a.target_id, a.target_name, a.detail, a.ip, a.device, a.user_id, u.name AS user_name
     FROM activity_log a LEFT JOIN users u ON u.id=a.user_id WHERE ${where.join(' AND ')}`, p };
 }
 app.get('/api/activity', auth, admin, wrap(async (req, res) => {
@@ -850,10 +864,10 @@ app.get('/api/activity.csv', auth, admin, wrap(async (req, res) => {
   const { sql, p } = activityQuery(req);
   const rows = await q(`${sql} ORDER BY a.id DESC LIMIT 20000`, p);
   const cell = (v) => { const s = v === null || v === undefined ? '' : String(v); return /[",\n\r]|^[=+\-@]/.test(s) ? `"${s.replace(/"/g, '""').replace(/^([=+\-@])/, "'$1")}"` : s; };
-  const lines = [['Time (UTC)', 'Who', 'Action', 'Type', 'Item', 'Details', 'IP'].join(',')];
+  const lines = [['Time (UTC)', 'Who', 'Action', 'Type', 'Item', 'Details', 'IP', 'Device'].join(',')];
   for (const r of rows)
     lines.push([new Date(r.created_at).toISOString().replace('T', ' ').slice(0, 19), r.user_name || (r.user_id ? 'Removed member' : 'Someone with a link'),
-      r.action, r.target_type, r.target_name, r.detail, r.ip].map(cell).join(','));
+      r.action, r.target_type, r.target_name, r.detail, r.ip, r.device].map(cell).join(','));
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="teamdrive-activity-${new Date().toISOString().slice(0, 10)}.csv"`);
   res.send('﻿' + lines.join('\r\n'));
@@ -883,7 +897,7 @@ app.post('/api/owner/teams', auth, owner, wrap(async (req, res) => {
     const trialDays = Number(req.body.trial_days) > 0 ? Math.min(Number(req.body.trial_days), 365) : 0;
     teamId = (await conn.query('INSERT INTO teams (name, quota_bytes, trial_ends_at) VALUES (?,?,?)',
       [name, quotaBytes(req.body.quota_gb), trialDays ? new Date(Date.now() + trialDays * 864e5) : null]))[0].insertId;
-    await conn.query('INSERT INTO users (team_id, email, name, password_hash, is_admin) VALUES (?,?,?,?,1)',
+    await conn.query('INSERT INTO users (team_id, email, name, password_hash, is_admin, must_change_password) VALUES (?,?,?,?,1,1)',
       [teamId, String(admin_email).toLowerCase(), cleanName(admin_name), await bcrypt.hash(String(admin_password), 12)]);
     await conn.commit();
   } catch (e) {
@@ -1024,6 +1038,9 @@ async function migrate() {
   await addColumn('users', 'is_owner', 'TINYINT(1) NOT NULL DEFAULT 0');
   await addColumn('teams', 'trial_ends_at', 'DATETIME NULL');
   await addColumn('users', 'is_demo', 'TINYINT(1) NOT NULL DEFAULT 0');
+  await addColumn('users', 'must_change_password', 'TINYINT(1) NOT NULL DEFAULT 0');
+  await addColumn('files', 'deleted_by', 'INT NULL');
+  await addColumn('folders', 'deleted_by', 'INT NULL');
   await q('CREATE TABLE IF NOT EXISTS app_state (k VARCHAR(64) PRIMARY KEY, v TEXT NULL)');
   await addColumn('folders', 'team_id', 'INT NULL');
   await addColumn('files', 'team_id', 'INT NULL');
@@ -1051,6 +1068,7 @@ async function migrate() {
     target_type VARCHAR(20) NULL, target_id INT NULL, target_name VARCHAR(255) NULL, detail VARCHAR(500) NULL,
     ip VARCHAR(64) NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_activity_team (team_id, id), INDEX idx_activity_user (team_id, user_id, id))`);
+  await addColumn('activity_log', 'device', 'VARCHAR(80) NULL');
   await q(`CREATE TABLE IF NOT EXISTS access_requests (
     id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(120) NOT NULL, email VARCHAR(200) NOT NULL, company VARCHAR(160) NOT NULL,
     team_size VARCHAR(40) NOT NULL, message TEXT NULL, ip VARCHAR(64) NULL, handled_at DATETIME NULL,
